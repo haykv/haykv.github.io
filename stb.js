@@ -1,3 +1,4 @@
-// function __$$(a) {
-// 	return false
-// }
+function __$$(a){
+	clearInterval(__$int);
+ 	return false;
+}
