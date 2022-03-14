@@ -542,19 +542,19 @@ function stbInit(){
     try{
         if(window.tizen === undefined) window.location.href = host+"/samsung/tizen/error.html";
         // Google analitics!!!
-        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+        /*(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
         send_event = function(eventAction, eventCategory, eventLabel){
             try {
                 // gtag('event', eventAction, {'event_category' : eventCategory, 'event_label' : eventLabel});
                 ga('send', 'event', eventCategory, eventAction, eventLabel);
             } catch (e) {}
-        }
-        ga('create', 'UA-112401085-1', { 'storage': 'none' });
+        }*/
+        //ga('create', 'UA-112401085-1', { 'storage': 'none' });
         // ga('create', 'G-G8ZDYPSJ9J', { 'storage': 'none' });
-        ga('set', 'checkProtocolTask', null);
-        ga('set', 'page', 'samsung/tizen/');
-        ga('set', 'title', 'samsung/tizen');
-        ga('send', 'pageview');
+        //ga('set', 'checkProtocolTask', null);
+        //ga('set', 'page', 'samsung/tizen/');
+        //ga('set', 'title', 'samsung/tizen');
+        //ga('send', 'pageview');
         // Google analitics!!!
 
         $('#launch').append('<br/>Load STB "tizen"...');
