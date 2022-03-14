@@ -75,10 +75,10 @@ body{
     bottom: 0px;
     padding: 100px;
     font-size: 16px;
-    background-repeat: no-repeat;
-    background-position: center center;
-	background-size: auto 80%;
-    // background-image: url(/stbPlayer/giphy.gif);
+    /* background-repeat: no-repeat; */
+    /* background-position: center center; */
+	/* background-size: auto 80%; */
+    /* background-image: url(/stbPlayer/giphy.gif); */
     /* background-image: url(/stbPlayer/buffering.gif); */
 	/* новый год */
 	/* background-size: auto 80%; */
