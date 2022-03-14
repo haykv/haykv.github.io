@@ -372,7 +372,8 @@ function _playChannel(cat, index){
 
     playType = 0;
     // setTimeout(function() {
-        if(!__$$(chanels[ch_id])) stbPlay(getChannelUrl(ch_id));
+    //    if(!__$$(chanels[ch_id])) 
+	stbPlay(getChannelUrl(ch_id));
     // }, 20);
     clearTimeout(_tmedia);
     _tmedia = setTimeout(checkMedia, 2000);
@@ -4875,7 +4876,7 @@ function selectLang(){
                     if(typeof(duneAddSettings) !== "function") loadProv(); //restart();
                     else optionsList(selectLang);
                 }else{
-                    ga_event('lang', 'lang', arrayLangs[selIndex]);
+                    // ga_event('lang', 'lang', arrayLangs[selIndex]);
                     stbSetItem("ottplaylang", arrayLangs[selIndex]);
                     keyStrings = {};
                     $.getScript(host+'/stbPlayer/'+arrayLangs[selIndex]+'.js?'+__cv, function(){
@@ -5069,7 +5070,7 @@ $(document).ready(function(){
 
         var lang = stbGetItem("ottplaylang");
         if(!lang){ failLang(); return; }
-        ga_event('lang', 'lang', lang);
+        // ga_event('lang', 'lang', lang);
         $.getScript(host+'/stbPlayer/'+lang+'.js?'+__cv, loadProv).fail(failLang);
     }catch(e){
         $(launch_id).append("<br/><br/><b>Exception:</b> name " + e.name +
@@ -5140,7 +5141,7 @@ function loadProv(){
     $.getScript(host+'/'+provaider+'/prov.js?'+__cv, function(){
         try{
             // _sn=0; stat();
-            ga_event('provaider', 'provaider', provaider);
+            // ga_event('provaider', 'provaider', provaider);
             if(typeof(duneAddSettings) === "function"){
                 $(launch_id).append(_('<br/>Loading settings...'));
                 var i1 = popupActions.indexOf(noProvParam)+1;
