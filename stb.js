@@ -1,3 +1,3 @@
 function __$$(a) {
-	return False
+	return false
 }
