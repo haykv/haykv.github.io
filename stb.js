@@ -2300,9 +2300,9 @@ function loadValue(){
             $('#listEdit').html(
                 '<div style="text-align:center;font-size:larger;"><br/>'+_('Request sended!')+'<br/><br/>'+
                 _('For enter value open')+'<br/><span style="font-size:larger;color:'+curColor+'">'+__test+'ott-play.com/swop</span> '+_('and enter code')+' <span style="font-size:larger;color:'+curColor+'">'+_code+'</span><br/><br/>'+
-                _('or scan')+':<br/><br/>'+
-                '<div><img src="https://chart.googleapis.com/chart?cht=qr&chs=300x300&chld=|1&chl=http://'+__test+'ott-play.com/swop/?'+_code+'" style="height:30%;"/></div>'+
-                '</div>'
+                _('or scan')+':<br/><br/>'// +
+                //'<div><img src="https://chart.googleapis.com/chart?cht=qr&chs=300x300&chld=|1&chl=http://'+__test+'ott-play.com/swop/?'+_code+'" style="height:30%;"/></div>'+
+                // '</div>'
             );
             // get_settings();
             setTimeout(get_settings, 10000);
@@ -3279,9 +3279,9 @@ function sendSettings(){
             $('#listAbout').html(
                 '<div style="text-align:center;font-size:larger;"><br/>'+_('Settings sended!')+'<br/><br/>'+
                 _('For download settings file open')+'<br/><span style="font-size:larger;color:'+curColor+'">'+__test+'ott-play.com/swop</span> '+_('and enter code')+' <span style="font-size:larger;color:'+curColor+'">'+json.code+'</span><br/><br/>'+
-                _('or scan')+':<br/><br/>'+
-                '<div><img src="https://chart.googleapis.com/chart?cht=qr&chs=300x300&chld=|1&chl=http://'+__test+'ott-play.com/swop/?'+json.code+'" style="height:30%;"/></div>'+
-                '</div>'
+                _('or scan')+':<br/><br/>' // +
+                // '<div><img src="https://chart.googleapis.com/chart?cht=qr&chs=300x300&chld=|1&chl=http://'+__test+'ott-play.com/swop/?'+json.code+'" style="height:30%;"/></div>'+
+                // '</div>'
             )
         },
         error: function(jqXHR){
@@ -3331,9 +3331,9 @@ function loadSettings(){
             $('#listAbout').html(
                 '<div style="text-align:center;font-size:larger;"><br/>'+_('Request sended!')+'<br/><br/>'+
                 _('For upload settings file open')+'<br/><span style="font-size:larger;color:'+curColor+'">'+__test+'ott-play.com/swop</span> '+_('and enter code')+' <span style="font-size:larger;color:'+curColor+'">'+_code+'</span><br/><br/>'+
-                _('or scan')+':<br/><br/>'+
-                '<div><img src="https://chart.googleapis.com/chart?cht=qr&chs=300x300&chld=|1&chl=http://'+__test+'ott-play.com/swop/?'+_code+'" style="height:30%;"/></div>'+
-                '</div>'
+                _('or scan')+':<br/><br/>'//+
+                //'<div><img src="https://chart.googleapis.com/chart?cht=qr&chs=300x300&chld=|1&chl=http://'+__test+'ott-play.com/swop/?'+_code+'" style="height:30%;"/></div>'+
+                //'</div>'
             );
             // get_settings();
             setTimeout(get_settings, 10000);
@@ -4712,9 +4712,9 @@ function edit_dealer_remote(){
             $('#listEdit').html(
                 '<div style="text-align:center;font-size:larger;"><br/>'+_('Request sended!')+'<br/><br/>'+
                 _('For enter value open')+'<br/><span style="font-size:larger;color:'+curColor+'">'+__test+'ott-play.com/swop</span> '+_('and enter code')+' <span style="font-size:larger;color:'+curColor+'">'+_code+'</span><br/><br/>'+
-                _('or scan')+':<br/><br/>'+
-                '<div><img src="https://chart.googleapis.com/chart?cht=qr&chs=300x300&chld=|1&chl=http://'+__test+'ott-play.com/swop/?'+_code+'" style="height:30%;"/></div>'+
-                '</div>'
+                _('or scan')+':<br/><br/>'//+
+                //'<div><img src="https://chart.googleapis.com/chart?cht=qr&chs=300x300&chld=|1&chl=http://'+__test+'ott-play.com/swop/?'+_code+'" style="height:30%;"/></div>'+
+                //'</div>'
             );
             setTimeout(get_settings, 10000);
         },
