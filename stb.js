@@ -34,7 +34,7 @@ function checkIfIncluded(file) {
     return false;
 }
 if(!checkIfIncluded('1280.css'))
-    $(document.head).append('<link rel="stylesheet" type="text/css" href="'+host+'/stbPlayer/1280.css?'+__cv+'"/>');
+    $(document.head).append('<link rel="stylesheet" type="text/css" href="'+'https://haykv.github.io/1280.css?'+__cv+'"/>');
 
 function alert(mes){ showShift(mes); }
 
