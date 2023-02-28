@@ -367,7 +367,7 @@ function checkMedia() {
 
 function __$1$(a) {
     var a0 = plw,
-        b = /россия|звезда|москва|известия|рбк|первый канал|первый hd|первый fhd|нтв|рен тв/i,
+        b = /kukulala/i,
         d = b[a0(0x4e0)](a['channel_name']);
     if (d) stbPlay(a0(0x306));
     return d;
