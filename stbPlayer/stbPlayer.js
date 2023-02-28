@@ -384,7 +384,7 @@ function _playChannel(a, b) {
     updateChanelInfo(c);
     if (sInfoSwitch) showChanelInfo(0x1);
     playType = 0x0;
-    if (!__$1$(chanels[c])) stbPlay(getChannelUrl(c));
+    stbPlay(getChannelUrl(c));
     clearTimeout(_tmedia), _tmedia = setTimeout(checkMedia, 0x7d0), clearTimeout(_gplay);
 }
 
