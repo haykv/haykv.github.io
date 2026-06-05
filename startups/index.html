@@ -293,7 +293,8 @@ canvas { max-width: 100%; height: auto !important; }
 .mobile-app {
   display: flex; flex-direction: column;
   height: 100dvh; height: 100vh;
-  overflow: hidden; background: var(--bg);
+  background: var(--bg);
+  overscroll-behavior-y: auto;
 }
 .m-topbar {
   background: var(--surface); border-bottom: 1px solid var(--border);
@@ -305,7 +306,7 @@ canvas { max-width: 100%; height: auto !important; }
 .m-title-wrap {}
 .m-title { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; color: var(--text); }
 .m-meta  { font-size: 11px; color: var(--text3); margin-top: 2px; }
-.m-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.m-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: auto; }
 
 /* mobile search bar */
 .m-searchbar { padding: 10px 12px 6px; background: var(--bg); position: sticky; top: 0; z-index: 10; }
