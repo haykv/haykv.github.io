@@ -46,9 +46,10 @@
 })();
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 /* ── TOKENS ─────────────────────────────────────────────────── */
-:root {
+:root, [data-theme=light] {
   --bg:       #f2f2f4;
   --surface:  #ffffff;
   --surface2: #f0f0f2;
@@ -82,6 +83,20 @@
   --shadow:   0 1px 3px rgba(0,0,0,0.4);
   --shadow2:  0 4px 20px rgba(0,0,0,0.5);
 }
+
+/* Skeleton Loaders */
+.skeleton {
+  background: var(--surface2);
+  background: linear-gradient(90deg, var(--surface2) 25%, var(--surface3) 50%, var(--surface2) 75%);
+  background-size: 200% 100%;
+  animation: sk-load 1.5s infinite linear;
+}
+@keyframes sk-load {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.sk-text { height: 12px; margin: 4px 0; border-radius: 4px; }
+.sk-card { height: 120px; border-radius: 12px; margin-bottom: 10px; }
 
 /* ── RESET ───────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -152,7 +167,7 @@ button { font-family: inherit; cursor: pointer; }
 .ms-badge { background: var(--accent); color: #fff; font-size: 10px; border-radius: 9999px; padding: 1px 6px; font-weight: 600; flex-shrink: 0; }
 .ms-dd {
   display: none; position: absolute; top: calc(100% + 4px); left: 0;
-  min-width: 220px; max-height: 300px; overflow-y: auto;
+  min-width: 220px; max-height: 300px; overflow-y: auto; overflow-x: hidden;
   background: var(--surface); border: 1px solid var(--border2);
   border-radius: var(--r); z-index: 999; box-shadow: var(--shadow2);
 }
@@ -243,6 +258,21 @@ tr:hover td { background: var(--surface2); }
 .td-link { color: var(--link); font-size: 12px; }
 .td-muted { color: var(--text2); }
 .d-empty { padding: 3rem; text-align: center; color: var(--text3); font-size: 13px; }
+
+/* STATS TAB */
+.d-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+.d-tab-btn {
+  padding: 8px 4px; font-size: 14px; font-weight: 600; color: var(--text3);
+  background: none; border: none; border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.d-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.d-tab-btn:hover:not(.active) { color: var(--text2); }
+
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; padding: 10px 0; }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; }
+.chart-card h3 { font-size: 14px; margin-bottom: 15px; color: var(--text); }
+canvas { max-width: 100%; height: auto !important; }
 
 /* fi alignment fix */
 .fi.fis { width: 1.25em !important; height: 0.94em !important; border-radius: 2px; vertical-align: middle; display: inline-block; line-height: 1; }
@@ -436,23 +466,32 @@ tr:hover td { background: var(--surface2); }
 <!-- ═══════════════════════════════════════════
      DESKTOP APP
 ═══════════════════════════════════════════ -->
-<div class="desktop-app" id="desktop-app" data-theme="light">
+<div class="desktop-app" id="desktop-app">
   <div class="d-topbar">
     <div>
       <div class="d-title">Semiconductor Startups</div>
       <div class="d-meta" id="d-meta">Fetching data…</div>
     </div>
-    <button class="theme-btn" id="d-theme-btn" onclick="cycleTheme()">Light</button>
+    <div style="display:flex;gap:8px">
+      <button class="theme-btn" onclick="exportCSV()">Export</button>
+      <button class="theme-btn" id="d-theme-btn" onclick="cycleTheme()">Light</button>
+    </div>
   </div>
 
-  <div class="d-controls">
+  <div class="d-tabs">
+    <button class="d-tab-btn active" id="d-tab-list" onclick="dSwitchTab('list')">Startups</button>
+    <button class="d-tab-btn" id="d-tab-stats" onclick="dSwitchTab('stats')">Statistics</button>
+  </div>
+
+  <div id="d-list-view">
+    <div class="d-controls">
     <div class="d-filters">
       <!-- Country MS -->
       <div class="ms-wrap" id="d-mw-cc">
-        <div class="ms-trigger" id="d-mt-cc" onclick="toggleMS('d','cc')">
+        <div class="ms-trigger" id="d-mt-cc" role="combobox" aria-haspopup="listbox" aria-expanded="false" onclick="toggleMS('d','cc')">
           <span id="d-ml-cc">Country</span><span class="arr">▼</span>
         </div>
-        <div class="ms-dd" id="d-md-cc">
+        <div class="ms-dd" id="d-md-cc" role="listbox">
           <div class="ms-dd-header">
             <input type="text" placeholder="Search…" id="d-ms-cc-q" oninput="renderMSList('d','cc',this.value)">
             <button class="ms-clear-btn" onclick="clearMS('d','cc');event.stopPropagation()">Clear</button>
@@ -462,10 +501,10 @@ tr:hover td { background: var(--surface2); }
       </div>
       <!-- Tech MS -->
       <div class="ms-wrap" id="d-mw-tech">
-        <div class="ms-trigger" id="d-mt-tech" onclick="toggleMS('d','tech')">
+        <div class="ms-trigger" id="d-mt-tech" role="combobox" aria-haspopup="listbox" aria-expanded="false" onclick="toggleMS('d','tech')">
           <span id="d-ml-tech">Technology</span><span class="arr">▼</span>
         </div>
-        <div class="ms-dd" id="d-md-tech">
+        <div class="ms-dd" id="d-md-tech" role="listbox">
           <div class="ms-dd-header">
             <input type="text" placeholder="Search…" id="d-ms-tech-q" oninput="renderMSList('d','tech',this.value)">
             <button class="ms-clear-btn" onclick="clearMS('d','tech');event.stopPropagation()">Clear</button>
@@ -504,14 +543,37 @@ tr:hover td { background: var(--surface2); }
       <colgroup><col class="cn"><col class="cw"><col class="ct"><col class="ccc"><col class="cy"><col class="cd"></colgroup>
       <thead><tr>
         <th onclick="sortBy('d','name',this)">Company</th>
-        <th class="nosort">Website</th>
+        <th onclick="sortBy('d','domain',this)">Website</th>
         <th onclick="sortBy('d','technology',this)">Technology</th>
         <th onclick="sortBy('d','cc',this)">Country</th>
         <th onclick="sortBy('d','founded',this)">Year</th>
         <th onclick="sortBy('d','description',this)">Description</th>
       </tr></thead>
-      <tbody id="d-tbody"><tr><td colspan="6" class="d-empty">Loading…</td></tr></tbody>
+      <tbody id="d-tbody">
+        <tr><td colspan="6"><div class="skeleton sk-text" style="width:30%"></div></td></tr>
+        <tr><td colspan="6"><div class="skeleton sk-text" style="width:50%"></div></td></tr>
+        <tr><td colspan="6"><div class="skeleton sk-text" style="width:40%"></div></td></tr>
+        <tr><td colspan="6"><div class="skeleton sk-text" style="width:60%"></div></td></tr>
+      </tbody>
     </table>
+  </div>
+  </div><!-- end d-list-view -->
+
+  <div id="d-stats-view" style="display:none">
+    <div class="stats-grid">
+      <div class="chart-card">
+        <h3>Technology Distribution</h3>
+        <canvas id="chart-tech"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Founding Year Distribution</h3>
+        <canvas id="chart-age"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Top Countries</h3>
+        <canvas id="chart-cc"></canvas>
+      </div>
+    </div>
   </div>
 
   <footer class="d-footer">
@@ -530,13 +592,16 @@ tr:hover td { background: var(--surface2); }
 <!-- ═══════════════════════════════════════════
      MOBILE APP
 ═══════════════════════════════════════════ -->
-<div class="mobile-app" id="mobile-app" data-theme="light">
+<div class="mobile-app" id="mobile-app">
   <div class="m-topbar">
     <div class="m-title-wrap">
       <div class="m-title">Chip Scout 🔬</div>
       <div class="m-meta" id="m-meta">Loading…</div>
     </div>
-    <button class="theme-btn" id="m-theme-btn" onclick="cycleTheme()">Light</button>
+    <div style="display:flex;gap:8px">
+      <button class="theme-btn" onclick="exportCSV()">Export</button>
+      <button class="theme-btn" id="m-theme-btn" onclick="cycleTheme()">Light</button>
+    </div>
   </div>
 
   <div class="m-content" id="m-content">
@@ -566,6 +631,7 @@ tr:hover td { background: var(--surface2); }
       <div class="m-sortbar">
         <span class="m-sort-label">Sort:</span>
         <button class="m-sort-chip active" onclick="mSetSort('name',this)">Name</button>
+        <button class="m-sort-chip" onclick="mSetSort('domain',this)">Website</button>
         <button class="m-sort-chip" onclick="mSetSort('founded',this)">Year</button>
         <button class="m-sort-chip" onclick="mSetSort('technology',this)">Technology</button>
         <button class="m-sort-chip" onclick="mSetSort('cc',this)">Country</button>
@@ -576,7 +642,28 @@ tr:hover td { background: var(--surface2); }
         <div class="m-stat"><div class="m-stat-val" id="m-s-cc">–</div><div class="m-stat-lbl">Countries</div></div>
         <div class="m-stat"><div class="m-stat-val" id="m-s-new">–</div><div class="m-stat-lbl">Since 2020</div></div>
       </div>
-      <div class="m-cards" id="m-cards"><div class="m-empty"><div class="m-empty-icon">⏳</div>Fetching startup data…</div></div>
+      <div class="m-cards" id="m-cards">
+        <div class="skeleton sk-card"></div>
+        <div class="skeleton sk-card"></div>
+        <div class="skeleton sk-card"></div>
+      </div>
+    </div>
+    <!-- Stats panel -->
+    <div id="m-stats-panel" style="display:none; padding: 12px;">
+      <div class="stats-grid" style="grid-template-columns: 1fr;">
+        <div class="chart-card">
+          <h3>Technology Distribution</h3>
+          <canvas id="chart-tech-m"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Founding Year Distribution</h3>
+          <canvas id="chart-age-m"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Top Countries</h3>
+          <canvas id="chart-cc-m"></canvas>
+        </div>
+      </div>
     </div>
     <!-- About panel -->
     <div id="m-about-panel" style="display:none">
@@ -605,6 +692,10 @@ tr:hover td { background: var(--surface2); }
       <button class="m-nav-btn active" id="m-nav-explore" onclick="mSwitchTab('explore',this)">
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         Explore
+      </button>
+      <button class="m-nav-btn" id="m-nav-stats" onclick="mSwitchTab('stats',this)">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Stats
       </button>
       <button class="m-nav-btn" id="m-nav-about" onclick="mSwitchTab('about',this)">
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
@@ -639,6 +730,10 @@ tr:hover td { background: var(--surface2); }
 ══════════════════════════════════════ */
 const RAW     = 'https://raw.githubusercontent.com/aolofsson/awesome-semiconductor-startups/main/startups.csv';
 const GH_API  = 'https://api.github.com/repos/aolofsson/awesome-semiconductor-startups/commits?path=startups.csv&per_page=1';
+const CACHE_KEY = 'chip-scout-data-v2';
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
+
+const FLAG_CDN = 'https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/flags/4x3/';
 
 const CC_MAP = {
   'United States':'us','USA':'us','US':'us',
@@ -671,7 +766,11 @@ function resolveCountry(raw) {
 }
 
 function flagHTML(cc, size=15) {
-  if (!cc) return '';
+  if (!cc) {
+    return `<span style="font-size:${size}px;color:var(--text3);display:inline-flex;align-items:center;justify-content:center;width:1.33em;height:1em;background:var(--surface2);border-radius:2px;flex-shrink:0">
+      <svg width="0.8em" height="0.8em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10A15.3 15.3 0 0 1 8 12 15.3 15.3 0 0 1 12 2z"/></svg>
+    </span>`;
+  }
   return `<span class="fi fi-${cc} fis" style="font-size:${size}px;border-radius:2px;flex-shrink:0"></span>`;
 }
 
@@ -684,28 +783,47 @@ let all=[], dVisible=[], mVisible=[];
 let dSelCC=new Set(), dSelTech=new Set(), dSortCol='name', dSortDir=1, dYearFilter='';
 let mSelCC=new Set(), mSelTech=new Set(), mSortCol='name', mSortDir=1, mYearFilter='';
 let ccFreq={}, techFreq={}, ccItems=[], techItems=[];
-let mSheetType=null;
+let mSheetType=null, charts={};
 
 /* ── PARSE ── */
 function parseCSV(txt) {
-  const lines = txt.trim().split('\n'), rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const vals = []; let cur = '', q = false;
-    for (const c of lines[i]) {
-      if (c==='"'){q=!q} else if(c===','&&!q){vals.push(cur.trim());cur='';}else cur+=c;
+  const rows = [];
+  let curRow = [], curVal = '', inQuotes = false;
+  for (let i = 0; i < txt.length; i++) {
+    const c = txt[i], next = txt[i+1];
+    if (inQuotes) {
+      if (c === '"' && next === '"') { curVal += '"'; i++; }
+      else if (c === '"') inQuotes = false;
+      else curVal += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { curRow.push(curVal.trim()); curVal = ''; }
+      else if (c === '\r' || c === '\n') {
+        curRow.push(curVal.trim());
+        if (curRow.length > 1) processRow(curRow, rows);
+        curRow = []; curVal = '';
+        if (c === '\r' && next === '\n') i++;
+      } else curVal += c;
     }
-    vals.push(cur.trim());
-    let [name='',website='',technology='',country='',founded='',description=''] = vals;
-    if (!name) continue;
-    if (/^\d{4}$/.test(country)) { founded=country; country='N/A'; }
-    if (!country) country='N/A';
-    const {cc, displayCC} = resolveCountry(country);
-    if (website && !website.startsWith('http')) website = 'https://'+website;
-    website = website.toLowerCase();
-    const domain = website ? website.replace(/https?:\/\//,'').replace(/\/.*$/,'') : '';
-    rows.push({name, website, domain, technology, country, cc, displayCC, founded: founded.trim(), description});
+  }
+  if (curRow.length > 0 || curVal.length > 0) {
+    curRow.push(curVal.trim());
+    if (curRow.length > 1) processRow(curRow, rows);
   }
   return rows;
+}
+
+function processRow(vals, rows) {
+  let [name='',website='',technology='',country='',founded='',description=''] = vals;
+  if (!name || name.toLowerCase() === 'name' || name.toLowerCase() === 'company') return;
+  if (website.toLowerCase() === 'website') return;
+  if (/^\d{4}$/.test(country)) { founded=country; country='N/A'; }
+  if (!country) country='N/A';
+  const {cc, displayCC} = resolveCountry(country);
+  if (website && !website.startsWith('http')) website = 'https://'+website;
+  website = website.toLowerCase();
+  const domain = website ? website.replace(/https?:\/\//,'').replace(/\/.*$/,'') : '';
+  rows.push({name, website, domain, technology, country, cc, displayCC, founded: founded.trim(), description});
 }
 
 function buildFreq() {
@@ -718,6 +836,213 @@ function buildFreq() {
   techItems = Object.entries(techFreq).sort((a,b)=>b[1]-a[1]).map(([v,n])=>({v,n}));
 }
 
+/* ── STATE & EXPORT ── */
+function syncStateToURL() {
+  const params = new URLSearchParams();
+  const activeTab = document.getElementById('d-tab-stats').classList.contains('active') ? 'stats' : 'list';
+  if (activeTab === 'stats') params.set('tab', 'stats');
+  if (dSelCC.size) params.set('cc', [...dSelCC].join(','));
+  if (dSelTech.size) params.set('tech', [...dSelTech].join(','));
+  if (dYearFilter) params.set('year', dYearFilter);
+  const q = document.getElementById('d-search').value || document.getElementById('m-search').value;
+  if (q) params.set('q', q);
+  if (dSortCol !== 'name' || dSortDir !== 1) { params.set('sort', dSortCol); params.set('dir', dSortDir); }
+  const newURL = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+  window.history.replaceState({}, '', newURL);
+}
+
+function loadStateFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const cc = params.get('cc'), tech = params.get('tech'), year = params.get('year'), q = params.get('q'), sort = params.get('sort'), dir = params.get('dir'), tab = params.get('tab');
+  if (cc) cc.split(',').forEach(v => { dSelCC.add(v); mSelCC.add(v); });
+  if (tech) tech.split(',').forEach(v => { dSelTech.add(v); mSelTech.add(v); });
+  if (year) { dYearFilter = year; mYearFilter = year; document.getElementById('d-f-year').value = year; }
+  if (q) { document.getElementById('d-search').value = q; document.getElementById('m-search').value = q; }
+  if (sort) { dSortCol = sort; mSortCol = sort; if (dir) { dSortDir = parseInt(dir); mSortDir = parseInt(dir); } }
+  if (tab === 'stats') {
+    if (window.innerWidth > 767) dSwitchTab('stats');
+    else mSwitchTab('stats', document.getElementById('m-nav-stats'));
+  }
+  updateMSLabel('d', 'cc'); updateMSLabel('d', 'tech');
+}
+
+function exportCSV() {
+  const visible = window.innerWidth > 767 ? dVisible : mVisible;
+  if (!visible.length) return alert('No data to export');
+  const headers = ['Name', 'Website', 'Technology', 'Country', 'Founded', 'Description'];
+  const csvContent = [headers.join(','), ...visible.map(r => [
+    `"${(r.name||'').replace(/"/g,'""')}"`,
+    `"${(r.website||'').replace(/"/g,'""')}"`,
+    `"${(r.technology||'').replace(/"/g,'""')}"`,
+    `"${(r.country||'').replace(/"/g,'""')}"`,
+    `"${(r.founded||'').replace(/"/g,'""')}"`,
+    `"${(r.description||'').replace(/"/g,'""')}"`
+  ].join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.setAttribute('download', `chip-scout-export-${new Date().toISOString().slice(0,10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function getEmojiFlag(cc) {
+  if (!cc || cc.length !== 2) return '';
+  return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+}
+
+function getTechEmoji(tech) {
+  const t = tech.toLowerCase();
+  if (t.includes('ai') || t.includes('intelligence') || t.includes('neural')) return '🧠';
+  if (t.includes('photonics') || t.includes('optical') || t.includes('laser')) return '🌈';
+  if (t.includes('risc') || t.includes('cpu') || t.includes('processor')) return '💻';
+  if (t.includes('rf') || t.includes('wireless') || t.includes('radar')) return '📡';
+  if (t.includes('power') || t.includes('battery') || t.includes('energy')) return '⚡';
+  if (t.includes('analog') || t.includes('mixed-signal')) return '〰️';
+  if (t.includes('memory') || t.includes('storage')) return '💾';
+  if (t.includes('sensor') || t.includes('mems') || t.includes('imaging')) return '👁️';
+  if (t.includes('quantum')) return '⚛️';
+  if (t.includes('eda') || t.includes('design tool')) return '🏗️';
+  if (t.includes('auto') || t.includes('vehicle')) return '🚗';
+  if (t.includes('security') || t.includes('crypto')) return '🔒';
+  return '🔌';
+}
+
+function renderCharts(ctx) {
+  const data = ctx === 'd' ? dVisible : mVisible;
+  const pfx = ctx === 'd' ? '' : '-m';
+  
+  const techData = {};
+  const ageData = {};
+  const ccData = {};
+  
+  data.forEach(r => {
+    if (r.technology) techData[r.technology] = (techData[r.technology]||0) + 1;
+    if (r.founded && /^\d{4}$/.test(r.founded)) ageData[r.founded] = (ageData[r.founded]||0) + 1;
+    if (r.displayCC && r.displayCC !== 'N/A') ccData[r.displayCC] = (ccData[r.displayCC]||0) + 1;
+  });
+
+  const topTech = Object.entries(techData).sort((a,b)=>b[1]-a[1]).slice(0, 10);
+  const sortedYears = Object.keys(ageData).sort();
+  const topCC = Object.entries(ccData).sort((a,b)=>b[1]-a[1]).slice(0, 10);
+
+  const colors = [
+    '#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff', 
+    '#ff9f40', '#4ade80', '#f472b6', '#2dd4bf', '#fb923c'
+  ];
+
+  ['tech', 'age', 'cc'].forEach(type => {
+    if (charts[type+pfx]) charts[type+pfx].destroy();
+  });
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const labelColor = isDark ? '#b0b0c0' : '#5a5a66';
+  const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
+
+  charts['tech'+pfx] = new Chart(document.getElementById('chart-tech'+pfx), {
+    type: 'pie',
+    data: {
+      labels: topTech.map(e => getTechEmoji(e[0]) + ' ' + e[0]),
+      datasets: [{ data: topTech.map(e=>e[1]), backgroundColor: colors, borderWidth: isDark ? 2 : 1, borderColor: isDark ? '#18181c' : '#fff' }]
+    },
+    options: { 
+      plugins: { 
+        legend: { 
+          position: window.innerWidth > 1200 ? 'right' : 'bottom', 
+          labels: { boxWidth: 12, font: { size: 11, weight: '500' }, color: labelColor, padding: 15 } 
+        } 
+      } 
+    }
+  });
+
+  charts['age'+pfx] = new Chart(document.getElementById('chart-age'+pfx), {
+    type: 'bar',
+    data: {
+      labels: sortedYears,
+      datasets: [{ 
+        label: 'Startups', 
+        data: sortedYears.map(y=>ageData[y]), 
+        backgroundColor: '#3b82f6',
+        borderRadius: 6
+      }]
+    },
+    options: { 
+      scales: { 
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor } },
+        x: { grid: { display: false }, ticks: { color: labelColor } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  const flagCache = {};
+  const flagPlugin = {
+    id: 'flagPlugin',
+    afterDraw: (chart) => {
+      const { ctx, scales: { y } } = chart;
+      if (!y || !y.ticks) return;
+      y.ticks.forEach((tick, i) => {
+        const countryName = topCC[i] ? topCC[i][0] : null;
+        if (!countryName) return;
+        const cc = dcToFlag(countryName);
+        if (!cc) return;
+        const url = `https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/flags/4x3/${cc}.svg`;
+        let img = flagCache[url];
+        if (!img) {
+          img = new Image();
+          img.src = url;
+          img.onload = () => chart.draw();
+          flagCache[url] = img;
+        }
+        if (img.complete) {
+          const yPos = y.getPixelForTick(i);
+          ctx.drawImage(img, y.left - 28, yPos - 7, 20, 14);
+        }
+      });
+    }
+  };
+
+  charts['cc'+pfx] = new Chart(document.getElementById('chart-cc'+pfx), {
+    type: 'bar',
+    data: {
+      labels: topCC.map(e => e[0]),
+      datasets: topCC.map((e, i) => ({
+        label: e[0],
+        data: topCC.map((_, idx) => idx === i ? e[1] : null),
+        backgroundColor: colors[i % colors.length],
+        borderRadius: 6,
+        barPercentage: 0.8,
+        categoryPercentage: 0.9
+      }))
+    },
+    options: { 
+      indexAxis: 'y', 
+      layout: { padding: { left: 30 } },
+      scales: { 
+        x: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor }, stacked: true },
+        y: { grid: { display: false }, ticks: { color: labelColor, font: { size: 12, weight: '600' } }, stacked: true }
+      },
+      plugins: { 
+        legend: { 
+          display: true, 
+          position: 'bottom',
+          labels: { boxWidth: 12, font: { size: 11 }, color: labelColor, padding: 10 }
+        } 
+      }
+    },
+    plugins: [flagPlugin]
+  });
+}
+
+function dSwitchTab(tab) {
+  document.querySelectorAll('.d-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('d-tab-'+tab).classList.add('active');
+  document.getElementById('d-list-view').style.display = tab==='list' ? '' : 'none';
+  document.getElementById('d-stats-view').style.display = tab==='stats' ? '' : 'none';
+  if (tab==='stats') renderCharts('d');
+}
+
 /* ══════════════════════════════════════
    DESKTOP LOGIC
 ══════════════════════════════════════ */
@@ -725,7 +1050,12 @@ function dFilter() {
   const q  = (document.getElementById('d-search').value||'').toLowerCase();
   const fy = document.getElementById('d-f-year').value;
   dVisible = all.filter(r => {
-    if (q && !(r.name+' '+r.technology+' '+r.description+' '+r.displayCC).toLowerCase().includes(q)) return false;
+    if (q) {
+      const name = r.name.toLowerCase(), tech = (r.technology||'').toLowerCase(), desc = (r.description||'').toLowerCase(), cc = (r.displayCC||'').toLowerCase();
+      if (name.includes(q)) r.score = 10;
+      else if ((tech+' '+desc+' '+cc).includes(q)) r.score = 1;
+      else return false;
+    } else r.score = 0;
     if (dSelCC.size   && !dSelCC.has(r.displayCC))  return false;
     if (dSelTech.size && !dSelTech.has(r.technology)) return false;
     const y = parseInt(r.founded);
@@ -735,12 +1065,13 @@ function dFilter() {
     return true;
   });
   dVisible.sort((a,b) => {
+    if (q && b.score !== a.score) return b.score - a.score;
     let va = a[dSortCol]||'', vb = b[dSortCol]||'';
     if (dSortCol==='founded') { va=parseInt(va)||0; vb=parseInt(vb)||0; return (va-vb)*dSortDir; }
     if (dSortCol==='cc') { va=a.displayCC||''; vb=b.displayCC||''; }
     return va.toString().toLowerCase() < vb.toString().toLowerCase() ? -dSortDir : dSortDir;
   });
-  dRenderTable(); dUpdateStats();
+  dRenderTable(); dUpdateStats(); syncStateToURL();
 }
 
 function applyFilters(ctx) { if(ctx==='d') dFilter(); else mFilter(); }
@@ -780,9 +1111,13 @@ function toggleMS(ctx, type) {
   const tr = document.getElementById(pfx+'mt-'+type);
   const wasOpen = dd.classList.contains('open');
   document.querySelectorAll('.ms-dd').forEach(d=>d.classList.remove('open'));
-  document.querySelectorAll('.ms-trigger').forEach(t=>t.classList.remove('open'));
+  document.querySelectorAll('.ms-trigger').forEach(t=>{
+    t.classList.remove('open');
+    t.setAttribute('aria-expanded', 'false');
+  });
   if (!wasOpen) {
     dd.classList.add('open'); tr.classList.add('open');
+    tr.setAttribute('aria-expanded', 'true');
     renderMSList(ctx, type);
     setTimeout(()=>document.getElementById(pfx+'ms-'+type+'-q').focus(), 40);
   }
@@ -864,7 +1199,12 @@ document.getElementById('d-search').addEventListener('input', () => dFilter());
 function mFilter() {
   const q  = (document.getElementById('m-search').value||'').toLowerCase();
   mVisible = all.filter(r => {
-    if (q && !(r.name+' '+r.technology+' '+r.description+' '+r.displayCC).toLowerCase().includes(q)) return false;
+    if (q) {
+      const name = r.name.toLowerCase(), tech = (r.technology||'').toLowerCase(), desc = (r.description||'').toLowerCase(), cc = (r.displayCC||'').toLowerCase();
+      if (name.includes(q)) r.score = 10;
+      else if ((tech+' '+desc+' '+cc).includes(q)) r.score = 1;
+      else return false;
+    } else r.score = 0;
     if (mSelCC.size   && !mSelCC.has(r.displayCC))    return false;
     if (mSelTech.size && !mSelTech.has(r.technology)) return false;
     const y = parseInt(r.founded);
@@ -874,12 +1214,13 @@ function mFilter() {
     return true;
   });
   mVisible.sort((a,b) => {
+    if (q && b.score !== a.score) return b.score - a.score;
     let va = a[mSortCol]||'', vb = b[mSortCol]||'';
     if (mSortCol==='founded') { va=parseInt(va)||0; vb=parseInt(vb)||0; return (va-vb)*mSortDir; }
     if (mSortCol==='cc') { va=a.displayCC||''; vb=b.displayCC||''; }
     return va.toString().toLowerCase() < vb.toString().toLowerCase() ? -mSortDir : mSortDir;
   });
-  mRenderCards(); mUpdateStats(); mUpdateChips();
+  mRenderCards(); mUpdateStats(); mUpdateChips(); syncStateToURL();
 }
 
 function mRenderCards() {
@@ -938,7 +1279,9 @@ function mSwitchTab(tab, btn) {
   document.querySelectorAll('.m-nav-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('m-explore-panel').style.display = tab==='explore' ? '' : 'none';
+  document.getElementById('m-stats-panel').style.display   = tab==='stats'   ? '' : 'none';
   document.getElementById('m-about-panel').style.display   = tab==='about'   ? '' : 'none';
+  if (tab==='stats') renderCharts('m');
 }
 
 document.getElementById('m-search').addEventListener('input', () => mFilter());
@@ -1005,21 +1348,21 @@ function toggleNav() {
 /* ══════════════════════════════════════
    THEME  (shared)
 ══════════════════════════════════════ */
-let themeMode = 'light';
+let themeMode = localStorage.getItem('theme-mode') || 'auto';
 
 function applyTheme() {
   const h = new Date().getHours();
   const resolved = themeMode==='auto' ? (h>=7&&h<19?'light':'dark') : themeMode;
   const labels = {light:'Light', dark:'Dark', auto:'Auto'};
-  document.getElementById('desktop-app').setAttribute('data-theme', resolved);
-  document.getElementById('mobile-app').setAttribute('data-theme', resolved);
-  document.getElementById('d-theme-btn').textContent = labels[themeMode];
-  document.getElementById('m-theme-btn').textContent = labels[themeMode];
+  document.documentElement.setAttribute('data-theme', resolved);
+  if (document.getElementById('d-theme-btn')) document.getElementById('d-theme-btn').textContent = labels[themeMode];
+  if (document.getElementById('m-theme-btn')) document.getElementById('m-theme-btn').textContent = labels[themeMode];
   document.getElementById('theme-color-meta').content = resolved==='dark' ? '#18181c' : '#ffffff';
 }
 
 function cycleTheme() {
   themeMode = themeMode==='light' ? 'dark' : themeMode==='dark' ? 'auto' : 'light';
+  localStorage.setItem('theme-mode', themeMode);
   applyTheme();
 }
 applyTheme();
@@ -1027,15 +1370,40 @@ applyTheme();
 /* ══════════════════════════════════════
    LOAD
 ══════════════════════════════════════ */
-Promise.all([
-  fetch(RAW).then(r => { if(!r.ok) throw new Error(r.status); return r.text(); }),
-  fetch(GH_API, {headers:{'Accept':'application/vnd.github.v3+json'}}).then(r=>r.ok?r.json():null).catch(()=>null)
-]).then(([csv, commits]) => {
-  all = parseCSV(csv);
-  buildFreq();
-  dFilter();
-  mFilter();
-  // date
+async function init() {
+  const cached = localStorage.getItem(CACHE_KEY);
+  if (cached) {
+    try {
+      const { data, commits, ts } = JSON.parse(cached);
+      if (Date.now() - ts < CACHE_TTL) {
+        all = data; buildFreq(); loadStateFromURL(); dFilter(); mFilter(); updateMeta(commits);
+        return;
+      }
+    } catch(e) { localStorage.removeItem(CACHE_KEY); }
+  }
+
+  try {
+    const [csv, commits] = await Promise.all([
+      fetch(RAW).then(r => r.text()),
+      fetch(GH_API, {headers:{'Accept':'application/vnd.github.v3+json'}}).then(r=>r.ok?r.json():null).catch(()=>null)
+    ]);
+    all = parseCSV(csv);
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ data: all, commits, ts: Date.now() }));
+    buildFreq(); loadStateFromURL(); dFilter(); mFilter(); updateMeta(commits);
+  } catch (err) {
+    console.error(err);
+    if (cached) {
+      const { data, commits } = JSON.parse(cached);
+      all = data; buildFreq(); loadStateFromURL(); dFilter(); mFilter(); updateMeta(commits);
+    } else {
+      const msg = `<tr><td colspan="6" class="d-empty">Could not load data (${err.message})</td></tr>`;
+      document.getElementById('d-tbody').innerHTML = msg;
+      document.getElementById('m-cards').innerHTML = `<div class="m-empty"><div class="m-empty-icon">⚠️</div>Could not load data.<br>${err.message}</div>`;
+    }
+  }
+}
+
+function updateMeta(commits) {
   let dateStr = '';
   if (commits && commits[0]) {
     const iso = commits[0]?.commit?.committer?.date || commits[0]?.commit?.author?.date;
@@ -1043,13 +1411,9 @@ Promise.all([
   }
   document.getElementById('d-meta').textContent = dateStr || 'Source: github.com/aolofsson/awesome-semiconductor-startups';
   document.getElementById('m-meta').textContent = dateStr || '';
-}).catch(err => {
-  const msg = `<tr><td colspan="6" class="d-empty">Could not load data (${err.message})</td></tr>`;
-  document.getElementById('d-tbody').innerHTML = msg;
-  document.getElementById('m-cards').innerHTML = `<div class="m-empty"><div class="m-empty-icon">⚠️</div>Could not load data.<br>${err.message}</div>`;
-  document.getElementById('d-meta').textContent = 'Failed to load';
-  document.getElementById('m-meta').textContent = 'Failed to load';
-});
+}
+
+init();
 </script>
 </body>
 </html>
