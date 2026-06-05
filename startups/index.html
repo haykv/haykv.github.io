@@ -980,9 +980,9 @@ function renderCharts(ctx) {
   const flagPlugin = {
     id: 'flagPlugin',
     afterDraw: (chart) => {
-      const { ctx, scales: { y } } = chart;
-      if (!y || !y.ticks) return;
-      y.ticks.forEach((tick, i) => {
+      const { ctx, scales: { x } } = chart;
+      if (!x || !x.ticks) return;
+      x.ticks.forEach((tick, i) => {
         const countryName = topCC[i] ? topCC[i][0] : null;
         if (!countryName) return;
         const cc = dcToFlag(countryName);
@@ -996,8 +996,8 @@ function renderCharts(ctx) {
           flagCache[url] = img;
         }
         if (img.complete) {
-          const yPos = y.getPixelForTick(i);
-          ctx.drawImage(img, y.left - 28, yPos - 7, 20, 14);
+          const xPos = x.getPixelForTick(i);
+          ctx.drawImage(img, xPos - 10, x.bottom + 2, 20, 14);
         }
       });
     }
@@ -1017,15 +1017,15 @@ function renderCharts(ctx) {
       }))
     },
     options: { 
-      indexAxis: 'y', 
-      layout: { padding: { left: 30 } },
+      indexAxis: 'x', 
+      layout: { padding: { bottom: 20 } },
       scales: { 
-        x: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor }, stacked: true },
-        y: { grid: { display: false }, ticks: { color: labelColor, font: { size: 12, weight: '600' } }, stacked: true }
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor }, stacked: true },
+        x: { grid: { display: false }, ticks: { color: labelColor, font: { size: 11, weight: '600' } }, stacked: true }
       },
       plugins: { 
         legend: { 
-          display: true, 
+          display: false, 
           position: 'bottom',
           labels: { boxWidth: 12, font: { size: 11 }, color: labelColor, padding: 10 }
         } 
