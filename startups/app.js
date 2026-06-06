@@ -351,11 +351,12 @@ function applyFilters(ctx) { if(ctx==='d') dFilter(); else mFilter(); }
 
 function dRenderTable() {
   const tb = document.getElementById('d-tbody');
+  
   if (!dVisible.length) { tb.innerHTML=`<tr><td colspan="6" class="d-empty">No matches.</td></tr>`; return; }
   tb.innerHTML = dVisible.map(r => `<tr>
     <td title="${r.name}" style="font-weight:600">${r.name}</td>
     <td>${r.domain ? `<a class="td-link" href="${r.website}" target="_blank">${r.domain}</a>` : '–'}</td>
-    <td class="td-muted">${r.technology||'–'}</td>
+    <td class="td-muted">${r.technology ? `${r.technology}` : '–'}</td>
     <td><div class="cc-cell">${flagHTML(r.cc,15)}<span>${r.displayCC}</span></div></td>
     <td class="td-muted">${r.founded||'–'}</td>
     <td title="${r.description}" class="td-muted">${r.description||'–'}</td>
@@ -416,6 +417,7 @@ function renderMSList(ctx, type, q='') {
   } else {
     el.innerHTML = list.map(({v,n}) => `<div class="ms-item${sel.has(v)?' sel':''}" onclick="toggleMSItem('${ctx}','tech','${v.replace(/'/g,"\\'")}',this)">
       <div class="ms-cb"></div>
+      <div class="ms-flag" style="font-size:14px">${getTechEmoji(v)}</div>
       <span>${v}</span>
       <span class="ms-freq">${n}</span>
     </div>`).join('');
@@ -443,7 +445,7 @@ function updateMSLabel(ctx, type) {
       const fc = dcToFlag(v);
       lbl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${flagHTML(fc,14)}<span>${v}</span></span>`;
     } else {
-      lbl.textContent = v.length>18 ? v.slice(0,16)+'…' : v;
+      lbl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px"><span>${getTechEmoji(v)}</span> <span>${v.length>18 ? v.slice(0,16)+'…' : v}</span></span>`;
     }
   } else {
     lbl.innerHTML = base+' <span class="ms-badge">'+sel.size+'</span>';
@@ -505,7 +507,7 @@ function mRenderCards() {
   el.innerHTML = mVisible.map(r => {
     const flagBadge = r.cc ? `<span class="m-badge m-badge-cc">${flagHTML(r.cc,12)}<span>${r.displayCC}</span></span>` : '';
     const yrBadge   = r.founded ? `<span class="m-badge m-badge-yr">${r.founded}</span>` : '';
-    const techBadge = r.technology ? `<span class="m-badge m-badge-tech">${r.technology}</span>` : '';
+    const techBadge = r.technology ? `<span class="m-badge m-badge-tech">${getTechEmoji(r.technology)} ${r.technology}</span>` : '';
     return `<div class="m-card">
       <div class="m-card-head">
         <div class="m-card-name">${r.name}</div>
@@ -588,6 +590,7 @@ function renderSheetItems(q) {
   } else {
     el.innerHTML = list.map(({v,n}) => `<div class="m-sheet-item${sel.has(v)?' sel':''}" onclick="toggleSheetItem('${v.replace(/'/g,"\\'")}')">
       <div class="m-sheet-check"></div>
+      <span style="font-size:18px;margin-right:8px">${getTechEmoji(v)}</span>
       <span class="m-sheet-item-label">${v}</span>
       <span class="m-sheet-item-freq">${n}</span>
     </div>`).join('');
