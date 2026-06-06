@@ -48,7 +48,47 @@
 .sk-text { height: 12px; margin: 4px 0; border-radius: 4px; }
 .sk-card { height: 120px; border-radius: 12px; margin-bottom: 10px; }
 
-/* ── RESET ───────────────────────────────────────────────────── */
+/* BMC Button Redesign */
+.bmc-custom-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #FFDD00;
+  color: #000000;
+  border: 1px solid #000000;
+  font-family: 'Cookie', cursive, sans-serif;
+  text-decoration: none !important;
+  font-weight: 600;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.bmc-custom-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 221, 0, 0.3);
+  text-decoration: none !important;
+}
+.bmc-emoji { font-size: 1.2em; }
+
+/* Desktop version: matches theme toggle size */
+.d-bmc {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+}
+.bmc-footer { margin-left: auto; }
+
+/* Mobile version: prominent but fits about tab */
+.m-bmc {
+  height: 44px;
+  padding: 0 24px;
+  border-radius: 12px;
+  font-size: 16px;
+  width: 100%;
+  max-width: 280px;
+  justify-content: center;
+}
+
+/* ── RESET ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
 body {
@@ -68,7 +108,7 @@ button { font-family: inherit; cursor: pointer; }
 .desktop-app { display: flex; flex-direction: column; min-height: 100vh; padding: 1rem 1.25rem 1.5rem; max-width: 1600px; margin: 0 auto; }
 
 /* top bar */
-.d-topbar { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem; gap: 12px; }
+.d-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; gap: 12px; }
 .d-title { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; color: var(--text); }
 .d-meta  { font-size: 11px; color: var(--text3); margin-top: 3px; }
 .theme-btn {
