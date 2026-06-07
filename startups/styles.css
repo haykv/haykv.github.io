@@ -295,7 +295,6 @@ canvas { max-width: 100%; height: auto !important; }
   flex-shrink: 0;
   display: flex; align-items: flex-start; justify-content: space-between;
 }
-.m-title-wrap {}
 .m-title { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; color: var(--text); }
 .m-meta  { font-size: 11px; color: var(--text3); margin-top: 2px; }
 .m-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: auto; }
@@ -375,7 +374,7 @@ canvas { max-width: 100%; height: auto !important; }
 .m-nav-header { padding: 0 6px; flex: 0 0 auto; min-width: 0; }
 .m-nav-links { display: flex; flex: 1; justify-content: center; min-width: 0; }
 .m-nav-actions { padding: 0 6px; flex: 0 0 auto; }
-.m-title { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 85px; }
+.m-bottomnav .m-title { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 85px; }
 .m-meta  { font-size: 9px; color: var(--text3); white-space: nowrap; }
 .m-nav-btn {
   padding: 2px 16px; border: none; background: transparent;

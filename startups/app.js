@@ -26,6 +26,19 @@ const CC_MAP = {
   'Luxembourg':'lu','Iceland':'is','Sweden':'se',
 };
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function debounce(fn, ms) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), ms);
+  };
+}
+
 function resolveCountry(raw) {
   if (!raw || raw === 'N/A') return { cc: null, displayCC: 'N/A' };
   const t = raw.trim();
@@ -52,7 +65,7 @@ function dcToFlag(displayCC) {
   return e ? e[1] : displayCC.toLowerCase();
 }
 
-let all=[], dVisible=[], mVisible=[];
+let all=[], dVisible=[], mVisible=[], nwCount=0;
 let dSelCC=new Set(), dSelTech=new Set(), dSortCol='name', dSortDir=1, dYearFilter='';
 let mSelCC=new Set(), mSelTech=new Set(), mSortCol='name', mSortDir=1, mYearFilter='';
 let ccFreq={}, techFreq={}, ccItems=[], techItems=[];
@@ -107,6 +120,7 @@ function buildFreq() {
   });
   ccItems   = Object.entries(ccFreq).sort((a,b)=>b[1]-a[1]).map(([v,n])=>({v,n}));
   techItems = Object.entries(techFreq).sort((a,b)=>b[1]-a[1]).map(([v,n])=>({v,n}));
+  nwCount = all.filter(r => { const y = parseInt(r.founded); return !isNaN(y) && y >= 2020; }).length;
 }
 
 /* ── STATE & EXPORT ── */
@@ -319,31 +333,51 @@ function dSwitchTab(tab) {
 /* ══════════════════════════════════════
    DESKTOP LOGIC
    ══════════════════════════════════════ */
-function dFilter() {
-  const q  = (document.getElementById('d-search').value||'').toLowerCase();
-  const fy = document.getElementById('d-f-year').value;
-  dVisible = all.filter(r => {
+function filterData(ctx) {
+  const isD = ctx === 'd';
+  const q = (document.getElementById(ctx + '-search').value||'').toLowerCase();
+  const selCC = isD ? dSelCC : mSelCC;
+  const selTech = isD ? dSelTech : mSelTech;
+  const sortCol = isD ? dSortCol : mSortCol;
+  const sortDir = isD ? dSortDir : mSortDir;
+  const yearFilter = isD ? (dYearFilter = document.getElementById('d-f-year').value) : mYearFilter;
+
+  const scores = new Map();
+
+  const visible = all.filter(r => {
+    let score = 0;
     if (q) {
       const name = r.name.toLowerCase(), tech = (r.technology||'').toLowerCase(), desc = (r.description||'').toLowerCase(), cc = (r.displayCC||'').toLowerCase();
-      if (name.includes(q)) r.score = 10;
-      else if ((tech+' '+desc+' '+cc).includes(q)) r.score = 1;
+      if (name.includes(q)) score = 10;
+      else if ((tech+' '+desc+' '+cc).includes(q)) score = 1;
       else return false;
-    } else r.score = 0;
-    if (dSelCC.size   && !dSelCC.has(r.displayCC))  return false;
-    if (dSelTech.size && !dSelTech.has(r.technology)) return false;
+    }
+    if (selCC.size   && !selCC.has(r.displayCC))  return false;
+    if (selTech.size && !selTech.has(r.technology)) return false;
     const y = parseInt(r.founded);
-    if (fy==='2020' && (isNaN(y)||y<2020)) return false;
-    if (fy==='2015' && (isNaN(y)||y<2015||y>=2020)) return false;
-    if (fy==='old'  && (isNaN(y)||y>=2015)) return false;
+    if (yearFilter==='2020' && (isNaN(y)||y<2020)) return false;
+    if (yearFilter==='2015' && (isNaN(y)||y<2015||y>=2020)) return false;
+    if (yearFilter==='old'  && (isNaN(y)||y>=2015)) return false;
+    scores.set(r, score);
     return true;
   });
-  dVisible.sort((a,b) => {
-    if (q && b.score !== a.score) return b.score - a.score;
-    let va = a[dSortCol]||'', vb = b[dSortCol]||'';
-    if (dSortCol==='founded') { va=parseInt(va)||0; vb=parseInt(vb)||0; return (va-vb)*dSortDir; }
-    if (dSortCol==='cc') { va=a.displayCC||''; vb=b.displayCC||''; }
-    return va.toString().toLowerCase() < vb.toString().toLowerCase() ? -dSortDir : dSortDir;
+
+  visible.sort((a,b) => {
+    if (q) {
+      const sa = scores.get(a)||0, sb = scores.get(b)||0;
+      if (sa !== sb) return sb - sa;
+    }
+    let va = a[sortCol]||'', vb = b[sortCol]||'';
+    if (sortCol==='founded') { va=parseInt(va)||0; vb=parseInt(vb)||0; return (va-vb)*sortDir; }
+    if (sortCol==='cc') { va=a.displayCC||''; vb=b.displayCC||''; }
+    return va.toString().toLowerCase() < vb.toString().toLowerCase() ? -sortDir : sortDir;
   });
+
+  return visible;
+}
+
+function dFilter() {
+  dVisible = filterData('d');
   dRenderTable(); dUpdateStats(); syncStateToURL();
 }
 
@@ -351,24 +385,22 @@ function applyFilters(ctx) { if(ctx==='d') dFilter(); else mFilter(); }
 
 function dRenderTable() {
   const tb = document.getElementById('d-tbody');
-  
   if (!dVisible.length) { tb.innerHTML=`<tr><td colspan="6" class="d-empty">No matches.</td></tr>`; return; }
   tb.innerHTML = dVisible.map(r => `<tr>
-    <td title="${r.name}" style="font-weight:600">${r.name}</td>
-    <td>${r.domain ? `<a class="td-link" href="${r.website}" target="_blank">${r.domain}</a>` : '–'}</td>
-    <td class="td-muted">${r.technology ? `${r.technology}` : '–'}</td>
-    <td><div class="cc-cell">${flagHTML(r.cc,15)}<span>${r.displayCC}</span></div></td>
-    <td class="td-muted">${r.founded||'–'}</td>
-    <td title="${r.description}" class="td-muted">${r.description||'–'}</td>
+    <td title="${escapeHtml(r.name)}" style="font-weight:600">${escapeHtml(r.name)}</td>
+    <td>${r.domain ? `<a class="td-link" href="${escapeHtml(r.website)}" target="_blank">${escapeHtml(r.domain)}</a>` : '–'}</td>
+    <td class="td-muted">${r.technology ? escapeHtml(r.technology) : '–'}</td>
+    <td><div class="cc-cell">${flagHTML(r.cc,15)}<span>${escapeHtml(r.displayCC)}</span></div></td>
+    <td class="td-muted">${escapeHtml(r.founded)||'–'}</td>
+    <td title="${escapeHtml(r.description)}" class="td-muted">${escapeHtml(r.description)||'–'}</td>
   </tr>`).join('');
 }
 
 function dUpdateStats() {
-  const nw = all.filter(r=>{const y=parseInt(r.founded);return !isNaN(y)&&y>=2020;}).length;
   document.getElementById('d-s-total').textContent   = all.length;
   document.getElementById('d-s-showing').textContent = dVisible.length;
   document.getElementById('d-s-cc').textContent      = new Set(dVisible.map(r=>r.displayCC).filter(c=>c&&c!=='N/A')).size;
-  document.getElementById('d-s-new').textContent     = nw;
+  document.getElementById('d-s-new').textContent     = nwCount;
 }
 
 function sortBy(ctx, col, th) {
@@ -407,18 +439,18 @@ function renderMSList(ctx, type, q='') {
   if (type==='cc') {
     el.innerHTML = list.map(({v,n}) => {
       const fc = dcToFlag(v);
-      return `<div class="ms-item${sel.has(v)?' sel':''}" onclick="toggleMSItem('${ctx}','cc','${v}',this)">
+      return `<div class="ms-item${sel.has(v)?' sel':''}" data-ctx="${ctx}" data-type="cc" data-value="${escapeHtml(v)}">
         <div class="ms-cb"></div>
         <div class="ms-flag">${flagHTML(fc,15)}</div>
-        <span>${v}</span>
+        <span>${escapeHtml(v)}</span>
         <span class="ms-freq">${n}</span>
       </div>`;
     }).join('');
   } else {
-    el.innerHTML = list.map(({v,n}) => `<div class="ms-item${sel.has(v)?' sel':''}" onclick="toggleMSItem('${ctx}','tech','${v.replace(/'/g,"\\'")}',this)">
+    el.innerHTML = list.map(({v,n}) => `<div class="ms-item${sel.has(v)?' sel':''}" data-ctx="${ctx}" data-type="tech" data-value="${escapeHtml(v)}">
       <div class="ms-cb"></div>
       <div class="ms-flag" style="font-size:14px">${getTechEmoji(v)}</div>
-      <span>${v}</span>
+      <span>${escapeHtml(v)}</span>
       <span class="ms-freq">${n}</span>
     </div>`).join('');
   }
@@ -443,12 +475,12 @@ function updateMSLabel(ctx, type) {
     const v = [...sel][0];
     if (type==='cc') {
       const fc = dcToFlag(v);
-      lbl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${flagHTML(fc,14)}<span>${v}</span></span>`;
+      lbl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${flagHTML(fc,14)}<span>${escapeHtml(v)}</span></span>`;
     } else {
-      lbl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px"><span>${getTechEmoji(v)}</span> <span>${v.length>18 ? v.slice(0,16)+'…' : v}</span></span>`;
+      lbl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px"><span>${getTechEmoji(v)}</span> <span>${escapeHtml(v.length>18 ? v.slice(0,16)+'…' : v)}</span></span>`;
     }
   } else {
-    lbl.innerHTML = base+' <span class="ms-badge">'+sel.size+'</span>';
+    lbl.textContent = base + ' (' + sel.size + ')';
   }
 }
 
@@ -461,40 +493,23 @@ function clearMS(ctx, type) {
 }
 
 document.addEventListener('click', e => {
+  const item = e.target.closest('.ms-item');
+  if (item && item.dataset.ctx) {
+    toggleMSItem(item.dataset.ctx, item.dataset.type, item.dataset.value, item);
+    return;
+  }
   if (!e.target.closest('.ms-wrap')) {
     document.querySelectorAll('.ms-dd').forEach(d=>d.classList.remove('open'));
     document.querySelectorAll('.ms-trigger').forEach(t=>t.classList.remove('open'));
   }
 });
-document.getElementById('d-search').addEventListener('input', () => dFilter());
+document.getElementById('d-search').addEventListener('input', debounce(dFilter, 200));
 
 /* ══════════════════════════════════════
    MOBILE LOGIC
    ══════════════════════════════════════ */
 function mFilter() {
-  const q  = (document.getElementById('m-search').value||'').toLowerCase();
-  mVisible = all.filter(r => {
-    if (q) {
-      const name = r.name.toLowerCase(), tech = (r.technology||'').toLowerCase(), desc = (r.description||'').toLowerCase(), cc = (r.displayCC||'').toLowerCase();
-      if (name.includes(q)) r.score = 10;
-      else if ((tech+' '+desc+' '+cc).includes(q)) r.score = 1;
-      else return false;
-    } else r.score = 0;
-    if (mSelCC.size   && !mSelCC.has(r.displayCC))    return false;
-    if (mSelTech.size && !mSelTech.has(r.technology)) return false;
-    const y = parseInt(r.founded);
-    if (mYearFilter==='2020' && (isNaN(y)||y<2020)) return false;
-    if (mYearFilter==='2015' && (isNaN(y)||y<2015||y>=2020)) return false;
-    if (mYearFilter==='old'  && (isNaN(y)||y>=2015)) return false;
-    return true;
-  });
-  mVisible.sort((a,b) => {
-    if (q && b.score !== a.score) return b.score - a.score;
-    let va = a[mSortCol]||'', vb = b[mSortCol]||'';
-    if (mSortCol==='founded') { va=parseInt(va)||0; vb=parseInt(vb)||0; return (va-vb)*mSortDir; }
-    if (mSortCol==='cc') { va=a.displayCC||''; vb=b.displayCC||''; }
-    return va.toString().toLowerCase() < vb.toString().toLowerCase() ? -mSortDir : mSortDir;
-  });
+  mVisible = filterData('m');
   mRenderCards(); mUpdateStats(); mUpdateChips(); syncStateToURL();
 }
 
@@ -505,26 +520,25 @@ function mRenderCards() {
     return;
   }
   el.innerHTML = mVisible.map(r => {
-    const flagBadge = r.cc ? `<span class="m-badge m-badge-cc">${flagHTML(r.cc,12)}<span>${r.displayCC}</span></span>` : '';
-    const yrBadge   = r.founded ? `<span class="m-badge m-badge-yr">${r.founded}</span>` : '';
-    const techBadge = r.technology ? `<span class="m-badge m-badge-tech">${getTechEmoji(r.technology)} ${r.technology}</span>` : '';
+    const flagBadge = r.cc ? `<span class="m-badge m-badge-cc">${flagHTML(r.cc,12)}<span>${escapeHtml(r.displayCC)}</span></span>` : '';
+    const yrBadge   = r.founded ? `<span class="m-badge m-badge-yr">${escapeHtml(r.founded)}</span>` : '';
+    const techBadge = r.technology ? `<span class="m-badge m-badge-tech">${getTechEmoji(r.technology)} ${escapeHtml(r.technology)}</span>` : '';
     return `<div class="m-card">
       <div class="m-card-head">
-        <div class="m-card-name">${r.name}</div>
+        <div class="m-card-name">${escapeHtml(r.name)}</div>
         <div class="m-card-row">${flagBadge}${yrBadge}${techBadge}</div>
       </div>
-      ${r.description ? `<div class="m-card-desc">${r.description}</div>` : ''}
-      ${r.domain ? `<div class="m-card-div"></div><a class="m-card-url" href="${r.website}" target="_blank">🔗 ${r.domain}</a>` : ''}
+      ${r.description ? `<div class="m-card-desc">${escapeHtml(r.description)}</div>` : ''}
+      ${r.domain ? `<div class="m-card-div"></div><a class="m-card-url" href="${escapeHtml(r.website)}" target="_blank">🔗 ${escapeHtml(r.domain)}</a>` : ''}
     </div>`;
   }).join('');
 }
 
 function mUpdateStats() {
-  const nw = all.filter(r=>{const y=parseInt(r.founded);return !isNaN(y)&&y>=2020;}).length;
   document.getElementById('m-s-total').textContent   = all.length;
   document.getElementById('m-s-showing').textContent = mVisible.length;
   document.getElementById('m-s-cc').textContent      = new Set(mVisible.map(r=>r.displayCC).filter(c=>c&&c!=='N/A')).size;
-  document.getElementById('m-s-new').textContent     = nw;
+  document.getElementById('m-s-new').textContent     = nwCount;
 }
 
 function mUpdateChips() {
@@ -559,7 +573,11 @@ function mSwitchTab(tab, btn) {
   if (tab==='stats') renderCharts('m');
 }
 
-document.getElementById('m-search').addEventListener('input', () => mFilter());
+document.getElementById('m-search').addEventListener('input', debounce(mFilter, 200));
+document.getElementById('m-sheet-items').addEventListener('click', e => {
+  const item = e.target.closest('.m-sheet-item');
+  if (item) toggleSheetItem(item.dataset.value);
+});
 
 /* MOBILE SHEET */
 function openSheet(type) {
@@ -580,18 +598,18 @@ function renderSheetItems(q) {
   if (mSheetType==='cc') {
     el.innerHTML = list.map(({v,n}) => {
       const fc = dcToFlag(v);
-      return `<div class="m-sheet-item${sel.has(v)?' sel':''}" onclick="toggleSheetItem('${v}')">
+      return `<div class="m-sheet-item${sel.has(v)?' sel':''}" data-value="${escapeHtml(v)}">
         <div class="m-sheet-check"></div>
         ${flagHTML(fc,18)}
-        <span class="m-sheet-item-label">${v}</span>
+        <span class="m-sheet-item-label">${escapeHtml(v)}</span>
         <span class="m-sheet-item-freq">${n}</span>
       </div>`;
     }).join('');
   } else {
-    el.innerHTML = list.map(({v,n}) => `<div class="m-sheet-item${sel.has(v)?' sel':''}" onclick="toggleSheetItem('${v.replace(/'/g,"\\'")}')">
+    el.innerHTML = list.map(({v,n}) => `<div class="m-sheet-item${sel.has(v)?' sel':''}" data-value="${escapeHtml(v)}">
       <div class="m-sheet-check"></div>
       <span style="font-size:18px;margin-right:8px">${getTechEmoji(v)}</span>
-      <span class="m-sheet-item-label">${v}</span>
+      <span class="m-sheet-item-label">${escapeHtml(v)}</span>
       <span class="m-sheet-item-freq">${n}</span>
     </div>`).join('');
   }
@@ -614,15 +632,8 @@ function clearMobileFilter() {
 function closeSheet()               { document.getElementById('m-sheet-overlay').classList.remove('open'); mSheetType=null; }
 function closeSheetOutside(e)       { if (e.target===document.getElementById('m-sheet-overlay')) closeSheet(); }
 
-function toggleNav() {
-  const nav    = document.getElementById('m-bottomnav');
-  const toggle = document.getElementById('m-nav-toggle');
-  const hidden = nav.classList.toggle('hidden');
-  toggle.classList.toggle('collapsed', hidden);
-}
-
 /* ══════════════════════════════════════
-   THEME  (shared)
+    THEME  (shared)
    ══════════════════════════════════════ */
 let themeMode = localStorage.getItem('theme-mode') || 'auto';
 
