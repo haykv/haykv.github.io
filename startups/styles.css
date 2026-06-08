@@ -54,41 +54,37 @@
 .bmc-custom-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: #FFDD00;
-  color: #000000;
-  border: 1px solid #000000;
-  font-family: 'Cookie', cursive, sans-serif;
+  gap: 4px;
+  color: var(--text3);
   text-decoration: none !important;
-  font-weight: 600;
-  transition: transform 0.15s, box-shadow 0.15s;
+  font-size: 11px;
+  border-bottom: 1px solid var(--border2);
+  padding-bottom: 1px;
+  transition: color 0.15s;
 }
 .bmc-custom-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 221, 0, 0.3);
+  color: var(--text2);
   text-decoration: none !important;
 }
-.bmc-emoji { font-size: 1.2em; }
-
-/* Desktop version: matches theme toggle size */
-.d-bmc {
-  height: 30px;
-  padding: 0 12px;
-  border-radius: var(--r-sm);
-  font-size: 13px;
-}
+.bmc-emoji { font-size: 11px; }
 .bmc-footer { margin-left: auto; }
 
-/* Mobile version: prominent but fits about tab */
-.m-bmc {
-  height: 44px;
-  padding: 0 24px;
-  border-radius: 12px;
-  font-size: 16px;
-  width: 100%;
-  max-width: 280px;
-  justify-content: center;
+.linkedin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text3);
+  text-decoration: none !important;
+  font-size: 11px;
+  border-bottom: 1px solid var(--border2);
+  padding-bottom: 1px;
+  transition: color 0.15s;
 }
+.linkedin-btn:hover {
+  color: var(--text2);
+  text-decoration: none !important;
+}
+.linkedin-svg { width: 11px; height: 11px; fill: currentColor; flex-shrink: 0; }
 
 /* ── RESET ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
