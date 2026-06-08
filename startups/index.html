@@ -104,7 +104,7 @@
         </div>
       </div>
       <!-- Year -->
-      <select class="year-sel" id="d-f-year" onchange="applyFilters('d')">
+      <select class="year-sel" id="d-f-year" onchange="setYearFilter(this.value)">
         <option value="">All years</option>
         <option value="2020">2020+</option>
         <option value="2015">2015–2019</option>
@@ -136,12 +136,12 @@
     <table>
       <colgroup><col class="cn"><col class="cw"><col class="ct"><col class="ccc"><col class="cy"><col class="cd"></colgroup>
       <thead><tr>
-        <th onclick="sortBy('d','name',this)">Company</th>
-        <th onclick="sortBy('d','domain',this)">Website</th>
-        <th onclick="sortBy('d','technology',this)">Technology</th>
-        <th onclick="sortBy('d','cc',this)">Country</th>
-        <th onclick="sortBy('d','founded',this)">Year</th>
-        <th onclick="sortBy('d','description',this)">Description</th>
+        <th onclick="sortBy('name',this)">Company</th>
+        <th onclick="sortBy('domain',this)">Website</th>
+        <th onclick="sortBy('technology',this)">Technology</th>
+        <th onclick="sortBy('cc',this)">Country</th>
+        <th onclick="sortBy('founded',this)">Year</th>
+        <th onclick="sortBy('description',this)">Description</th>
       </tr></thead>
       <tbody id="d-tbody">
         <tr><td colspan="6"><div class="skeleton sk-text" style="width:30%"></div></td></tr>

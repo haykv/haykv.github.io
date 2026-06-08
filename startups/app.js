@@ -4,9 +4,7 @@
 const RAW     = 'https://raw.githubusercontent.com/aolofsson/awesome-semiconductor-startups/main/startups.csv';
 const GH_API  = 'https://api.github.com/repos/aolofsson/awesome-semiconductor-startups/commits?path=startups.csv&per_page=1';
 const CACHE_KEY = 'chip-scout-data-v2';
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
-
-const FLAG_CDN = 'https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/flags/4x3/';
+const CACHE_TTL = 24 * 60 * 60 * 1000;
 
 const CC_MAP = {
   'United States':'us','USA':'us','US':'us',
@@ -26,6 +24,18 @@ const CC_MAP = {
   'Luxembourg':'lu','Iceland':'is','Sweden':'se',
 };
 
+const ICON = {
+  globe: `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10A15.3 15.3 0 0 1 8 12 15.3 15.3 0 0 1 12 2z"/></svg>`,
+  chip: `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m8 21 4-4 4 4M12 17v4"/></svg>`,
+  globeFlag: `<svg width="0.8em" height="0.8em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10A15.3 15.3 0 0 1 8 12 15.3 15.3 0 0 1 12 2z"/></svg>`
+};
+
+const CHART_COLORS = [
+  '#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff',
+  '#ff9f40', '#4ade80', '#f472b6', '#2dd4bf', '#fb923c'
+];
+
+/* ── UTILITY ── */
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
@@ -53,9 +63,7 @@ function resolveCountry(raw) {
 
 function flagHTML(cc, size=15) {
   if (!cc) {
-    return `<span style="font-size:${size}px;color:var(--text3);display:inline-flex;align-items:center;justify-content:center;width:1.33em;height:1em;background:var(--surface2);border-radius:2px;flex-shrink:0">
-      <svg width="0.8em" height="0.8em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10A15.3 15.3 0 0 1 8 12 15.3 15.3 0 0 1 12 2z"/></svg>
-    </span>`;
+    return `<span style="font-size:${size}px;color:var(--text3);display:inline-flex;align-items:center;justify-content:center;width:1.33em;height:1em;background:var(--surface2);border-radius:2px;flex-shrink:0">${ICON.globeFlag}</span>`;
   }
   return `<span class="fi fi-${cc} fis" style="font-size:${size}px;border-radius:2px;flex-shrink:0"></span>`;
 }
@@ -65,11 +73,33 @@ function dcToFlag(displayCC) {
   return e ? e[1] : displayCC.toLowerCase();
 }
 
-let all=[], dVisible=[], mVisible=[], nwCount=0;
-let dSelCC=new Set(), dSelTech=new Set(), dSortCol='name', dSortDir=1, dYearFilter='';
-let mSelCC=new Set(), mSelTech=new Set(), mSortCol='name', mSortDir=1, mYearFilter='';
-let ccFreq={}, techFreq={}, ccItems=[], techItems=[];
-let mSheetType=null, charts={};
+function getEmojiFlag(cc) {
+  if (!cc || cc.length !== 2) return '';
+  return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+}
+
+function getTechEmoji(tech) {
+  const t = tech.toLowerCase();
+  if (t.includes('ai') || t.includes('intelligence') || t.includes('neural')) return '🧠';
+  if (t.includes('photonics') || t.includes('optical') || t.includes('laser')) return '🌈';
+  if (t.includes('risc') || t.includes('cpu') || t.includes('processor')) return '💻';
+  if (t.includes('rf') || t.includes('wireless') || t.includes('radar')) return '📡';
+  if (t.includes('power') || t.includes('battery') || t.includes('energy')) return '⚡';
+  if (t.includes('analog') || t.includes('mixed-signal')) return '〰️';
+  if (t.includes('memory') || t.includes('storage')) return '💾';
+  if (t.includes('sensor') || t.includes('mems') || t.includes('imaging')) return '👁️';
+  if (t.includes('quantum')) return '⚛️';
+  if (t.includes('eda') || t.includes('design tool')) return '🏗️';
+  if (t.includes('auto') || t.includes('vehicle')) return '🚗';
+  if (t.includes('security') || t.includes('crypto')) return '🔒';
+  return '🔌';
+}
+
+/* ── STATE ── */
+let all = [], visible = [];
+let selCC = new Set(), selTech = new Set(), sortCol = 'name', sortDir = 1, yearFilter = '';
+let ccFreq = {}, techFreq = {}, ccItems = [], techItems = [];
+let sheetType = null, charts = {};
 
 /* ── PARSE ── */
 function parseCSV(txt) {
@@ -120,311 +150,14 @@ function buildFreq() {
   });
   ccItems   = Object.entries(ccFreq).sort((a,b)=>b[1]-a[1]).map(([v,n])=>({v,n}));
   techItems = Object.entries(techFreq).sort((a,b)=>b[1]-a[1]).map(([v,n])=>({v,n}));
-  nwCount = all.filter(r => { const y = parseInt(r.founded); return !isNaN(y) && y >= 2020; }).length;
 }
 
-/* ── STATE & EXPORT ── */
-function syncStateToURL() {
-  const params = new URLSearchParams();
-  const activeTab = document.getElementById('d-tab-stats').classList.contains('active') ? 'stats' : 'list';
-  if (activeTab === 'stats') params.set('tab', 'stats');
-  if (dSelCC.size) params.set('cc', [...dSelCC].join(','));
-  if (dSelTech.size) params.set('tech', [...dSelTech].join(','));
-  if (dYearFilter) params.set('year', dYearFilter);
-  const q = document.getElementById('d-search').value || document.getElementById('m-search').value;
-  if (q) params.set('q', q);
-  if (dSortCol !== 'name' || dSortDir !== 1) { params.set('sort', dSortCol); params.set('dir', dSortDir); }
-  const newURL = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-  window.history.replaceState({}, '', newURL);
-}
-
-function loadStateFromURL() {
-  const params = new URLSearchParams(window.location.search);
-  const cc = params.get('cc'), tech = params.get('tech'), year = params.get('year'), q = params.get('q'), sort = params.get('sort'), dir = params.get('dir'), tab = params.get('tab');
-  if (cc) cc.split(',').forEach(v => { dSelCC.add(v); mSelCC.add(v); });
-  if (tech) tech.split(',').forEach(v => { dSelTech.add(v); mSelTech.add(v); });
-  if (year) { dYearFilter = year; mYearFilter = year; document.getElementById('d-f-year').value = year; }
-  if (q) { document.getElementById('d-search').value = q; document.getElementById('m-search').value = q; }
-  if (sort) { dSortCol = sort; mSortCol = sort; if (dir) { dSortDir = parseInt(dir); mSortDir = parseInt(dir); } }
-  if (tab === 'stats') {
-    if (window.innerWidth > 767) dSwitchTab('stats');
-    else mSwitchTab('stats', document.getElementById('m-nav-stats'));
-  }
-  updateMSLabel('d', 'cc'); updateMSLabel('d', 'tech');
-}
-
-function exportCSV() {
-  const visible = window.innerWidth > 767 ? dVisible : mVisible;
-  if (!visible.length) return alert('No data to export');
-  const headers = ['Name', 'Website', 'Technology', 'Country', 'Founded', 'Description'];
-  const csvContent = [headers.join(','), ...visible.map(r => [
-    `"${(r.name||'').replace(/"/g,'""')}"`,
-    `"${(r.website||'').replace(/"/g,'""')}"`,
-    `"${(r.technology||'').replace(/"/g,'""')}"`,
-    `"${(r.country||'').replace(/"/g,'""')}"`,
-    `"${(r.founded||'').replace(/"/g,'""')}"`,
-    `"${(r.description||'').replace(/"/g,'""')}"`
-  ].join(','))].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.setAttribute('download', `chip-scout-export-${new Date().toISOString().slice(0,10)}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-function getEmojiFlag(cc) {
-  if (!cc || cc.length !== 2) return '';
-  return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
-}
-
-function getTechEmoji(tech) {
-  const t = tech.toLowerCase();
-  if (t.includes('ai') || t.includes('intelligence') || t.includes('neural')) return '🧠';
-  if (t.includes('photonics') || t.includes('optical') || t.includes('laser')) return '🌈';
-  if (t.includes('risc') || t.includes('cpu') || t.includes('processor')) return '💻';
-  if (t.includes('rf') || t.includes('wireless') || t.includes('radar')) return '📡';
-  if (t.includes('power') || t.includes('battery') || t.includes('energy')) return '⚡';
-  if (t.includes('analog') || t.includes('mixed-signal')) return '〰️';
-  if (t.includes('memory') || t.includes('storage')) return '💾';
-  if (t.includes('sensor') || t.includes('mems') || t.includes('imaging')) return '👁️';
-  if (t.includes('quantum')) return '⚛️';
-  if (t.includes('eda') || t.includes('design tool')) return '🏗️';
-  if (t.includes('auto') || t.includes('vehicle')) return '🚗';
-  if (t.includes('security') || t.includes('crypto')) return '🔒';
-  return '🔌';
-}
-
-function renderCharts(ctx) {
-  const data = ctx === 'd' ? dVisible : mVisible;
-  const pfx = ctx === 'd' ? '' : '-m';
-  
-  const techData = {};
-  const ageData = {};
-  const ccData = {};
-  
-  data.forEach(r => {
-    if (r.technology) techData[r.technology] = (techData[r.technology]||0) + 1;
-    if (r.founded && /^\d{4}$/.test(r.founded)) ageData[r.founded] = (ageData[r.founded]||0) + 1;
-    if (r.displayCC && r.displayCC !== 'N/A') ccData[r.displayCC] = (ccData[r.displayCC]||0) + 1;
-  });
-
-  const topTech = Object.entries(techData).sort((a,b)=>b[1]-a[1]).slice(0, 10);
-  const sortedYears = Object.keys(ageData).sort();
-  const topCC = Object.entries(ccData).sort((a,b)=>b[1]-a[1]).slice(0, 10);
-
-  const colors = [
-    '#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff', 
-    '#ff9f40', '#4ade80', '#f472b6', '#2dd4bf', '#fb923c'
-  ];
-
-  ['tech', 'age', 'cc', 'age-dist', 'new-old', 'tech-cc'].forEach(type => {
-    if (charts[type+pfx]) charts[type+pfx].destroy();
-  });
-
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const labelColor = isDark ? '#b0b0c0' : '#5a5a66';
-  const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
-
-  charts['tech'+pfx] = new Chart(document.getElementById('chart-tech'+pfx), {
-    type: 'pie',
-    data: {
-      labels: topTech.map(e => getTechEmoji(e[0]) + ' ' + e[0]),
-      datasets: [{ data: topTech.map(e=>e[1]), backgroundColor: colors, borderWidth: isDark ? 2 : 1, borderColor: isDark ? '#18181c' : '#fff' }]
-    },
-    options: { 
-      plugins: { 
-        legend: { 
-          position: window.innerWidth > 1200 ? 'right' : 'bottom', 
-          labels: { boxWidth: 12, font: { size: 11, weight: '500' }, color: labelColor, padding: 15 } 
-        } 
-      } 
-    }
-  });
-
-  charts['age'+pfx] = new Chart(document.getElementById('chart-age'+pfx), {
-    type: 'bar',
-    data: {
-      labels: sortedYears,
-      datasets: [{ 
-        label: 'Startups', 
-        data: sortedYears.map(y=>ageData[y]), 
-        backgroundColor: '#3b82f6',
-        borderRadius: 6
-      }]
-    },
-    options: { 
-      scales: { 
-        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor } },
-        x: { grid: { display: false }, ticks: { color: labelColor } }
-      },
-      plugins: { legend: { display: false } }
-    }
-  });
-
-  const flagCache = {};
-  const flagPlugin = {
-    id: 'flagPlugin',
-    afterDraw: (chart) => {
-      const { ctx, scales: { x } } = chart;
-      if (!x || !x.ticks) return;
-      x.ticks.forEach((tick, i) => {
-        const countryName = chart.data.labels[i];
-        if (!countryName) return;
-        const cc = dcToFlag(countryName);
-        if (!cc) return;
-        const url = `https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/flags/4x3/${cc}.svg`;
-        let img = flagCache[url];
-        if (!img) {
-          img = new Image();
-          img.src = url;
-          img.onload = () => chart.draw();
-          flagCache[url] = img;
-        }
-        if (img.complete) {
-          const xPos = x.getPixelForTick(i);
-          ctx.drawImage(img, xPos - 10, x.bottom + 2, 20, 14);
-        }
-      });
-    }
-  };
-
-  charts['cc'+pfx] = new Chart(document.getElementById('chart-cc'+pfx), {
-    type: 'bar',
-    data: {
-      labels: topCC.map(e => e[0]),
-      datasets: topCC.map((e, i) => ({
-        label: e[0],
-        data: topCC.map((_, idx) => idx === i ? e[1] : null),
-        backgroundColor: colors[i % colors.length],
-        borderRadius: 6,
-        barPercentage: 0.8,
-        categoryPercentage: 0.9
-      }))
-    },
-    options: { 
-      indexAxis: 'x', 
-      layout: { padding: { bottom: 20 } },
-      scales: { 
-        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor }, stacked: true },
-        x: { grid: { display: false }, ticks: { color: labelColor, font: { size: 11, weight: '600' } }, stacked: true }
-      },
-      plugins: { 
-        legend: { 
-          display: false, 
-          position: 'bottom',
-          labels: { boxWidth: 12, font: { size: 11 }, color: labelColor, padding: 10 }
-        } 
-      }
-    },
-    plugins: [flagPlugin]
-  });
-
-  /* ── Startup Age Distribution ── */
-  const ageRanges = { '0–2 yr': 0, '3–5 yr': 0, '6–10 yr': 0, '10+ yr': 0 };
-  const currentYear = new Date().getFullYear();
-  data.forEach(r => {
-    if (!r.founded || !/^\d{4}$/.test(r.founded)) return;
-    const age = currentYear - parseInt(r.founded);
-    if (age <= 2) ageRanges['0–2 yr']++;
-    else if (age <= 5) ageRanges['3–5 yr']++;
-    else if (age <= 10) ageRanges['6–10 yr']++;
-    else ageRanges['10+ yr']++;
-  });
-  charts['age-dist'+pfx] = new Chart(document.getElementById('chart-age-dist'+pfx), {
-    type: 'bar',
-    data: {
-      labels: Object.keys(ageRanges),
-      datasets: [{ data: Object.values(ageRanges), backgroundColor: ['#4ade80','#3b82f6','#f59e0b','#ef4444'], borderRadius: 6 }]
-    },
-    options: {
-      scales: {
-        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor } },
-        x: { grid: { display: false }, ticks: { color: labelColor } }
-      },
-      plugins: { legend: { display: false } }
-    }
-  });
-
-  /* ── New vs Established ── */
-  let newCount = 0, oldCount = 0;
-  data.forEach(r => {
-    if (!r.founded || !/^\d{4}$/.test(r.founded)) return;
-    if (parseInt(r.founded) >= 2020) newCount++; else oldCount++;
-  });
-  charts['new-old'+pfx] = new Chart(document.getElementById('chart-new-old'+pfx), {
-    type: 'doughnut',
-    data: {
-      labels: ['Founded 2020+', 'Founded before 2020'],
-      datasets: [{ data: [newCount, oldCount], backgroundColor: ['#3b82f6', '#94a3b8'], borderWidth: isDark ? 2 : 1, borderColor: isDark ? '#18181c' : '#fff' }]
-    },
-    options: {
-      plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, weight: '500' }, color: labelColor, padding: 15 } }
-      }
-    }
-  });
-
-  /* ── Top Tech per Country ── */
-  const topCNames = topCC.slice(0, 8).map(e => e[0]);
-  const techPerCC = {};
-  topCNames.forEach(cc => { techPerCC[cc] = {}; });
-  data.forEach(r => {
-    if (!r.displayCC || r.displayCC === 'N/A' || !r.technology) return;
-    if (!topCNames.includes(r.displayCC)) return;
-    techPerCC[r.displayCC][r.technology] = (techPerCC[r.displayCC][r.technology] || 0) + 1;
-  });
-  const topTechGlobal = topTech.map(e => e[0]).slice(0, 6);
-  charts['tech-cc'+pfx] = new Chart(document.getElementById('chart-tech-cc'+pfx), {
-    type: 'bar',
-    data: {
-      labels: topCNames,
-      datasets: topTechGlobal.map((tech, i) => ({
-        label: tech,
-        data: topCNames.map(cc => (techPerCC[cc] && techPerCC[cc][tech]) || 0),
-        backgroundColor: colors[i % colors.length],
-        borderRadius: 4
-      }))
-    },
-    options: {
-      indexAxis: 'x',
-      layout: { padding: { bottom: 20 } },
-      scales: {
-        x: { stacked: true, grid: { display: false }, ticks: { color: labelColor, font: { size: 11, weight: '600' } } },
-        y: { beginAtZero: true, stacked: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor } }
-      },
-      plugins: {
-        legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 }, color: labelColor, padding: 10 } }
-      }
-    },
-    plugins: [flagPlugin]
-  });
-}
-
-function dSwitchTab(tab) {
-  document.querySelectorAll('.d-tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('d-tab-'+tab).classList.add('active');
-  document.getElementById('d-list-view').style.display = tab==='list' ? '' : 'none';
-  document.getElementById('d-stats-view').style.display = tab==='stats' ? '' : 'none';
-  if (tab==='stats') renderCharts('d');
-}
-
-/* ══════════════════════════════════════
-   DESKTOP LOGIC
-   ══════════════════════════════════════ */
-function filterData(ctx) {
-  const isD = ctx === 'd';
-  const q = (document.getElementById(ctx + '-search').value||'').toLowerCase();
-  const selCC = isD ? dSelCC : mSelCC;
-  const selTech = isD ? dSelTech : mSelTech;
-  const sortCol = isD ? dSortCol : mSortCol;
-  const sortDir = isD ? dSortDir : mSortDir;
-  const yearFilter = isD ? (dYearFilter = document.getElementById('d-f-year').value) : mYearFilter;
-
+/* ── FILTER ── */
+function filterData(searchQuery) {
+  const q = (searchQuery || '').toLowerCase();
   const scores = new Map();
 
-  const visible = all.filter(r => {
+  const result = all.filter(r => {
     let score = 0;
     if (q) {
       const name = r.name.toLowerCase(), tech = (r.technology||'').toLowerCase(), desc = (r.description||'').toLowerCase(), cc = (r.displayCC||'').toLowerCase();
@@ -442,7 +175,7 @@ function filterData(ctx) {
     return true;
   });
 
-  visible.sort((a,b) => {
+  result.sort((a,b) => {
     if (q) {
       const sa = scores.get(a)||0, sb = scores.get(b)||0;
       if (sa !== sb) return sb - sa;
@@ -453,21 +186,31 @@ function filterData(ctx) {
     return va.toString().toLowerCase() < vb.toString().toLowerCase() ? -sortDir : sortDir;
   });
 
-  return visible;
+  return result;
 }
 
 function dFilter() {
-  dVisible = filterData('d');
+  visible = filterData(document.getElementById('d-search').value);
   dRenderTable(); dUpdateStats(); syncStateToURL();
   if (!document.getElementById('d-stats-view').style.display) renderCharts('d');
 }
 
-function applyFilters(ctx) { if(ctx==='d') dFilter(); else mFilter(); }
+function mFilter() {
+  visible = filterData(document.getElementById('m-search').value);
+  mRenderCards(); mUpdateStats(); mUpdateChips(); syncStateToURL();
+  if (!document.getElementById('m-stats-panel').style.display) renderCharts('m');
+}
 
+function setYearFilter(val) {
+  yearFilter = val;
+  dFilter();
+}
+
+/* ── RENDER: Desktop ── */
 function dRenderTable() {
   const tb = document.getElementById('d-tbody');
-  if (!dVisible.length) { tb.innerHTML=`<tr><td colspan="6" class="d-empty">No matches.</td></tr>`; return; }
-  tb.innerHTML = dVisible.map(r => `<tr>
+  if (!visible.length) { tb.innerHTML=`<tr><td colspan="6" class="d-empty">No matches.</td></tr>`; return; }
+  tb.innerHTML = visible.map(r => `<tr>
     <td title="${escapeHtml(r.name)}" style="font-weight:600">${escapeHtml(r.name)}</td>
     <td>${r.domain ? `<a class="td-link" href="${escapeHtml(r.website)}" target="_blank">${escapeHtml(r.domain)}</a>` : '–'}</td>
     <td>${r.technology ? `<span class="td-tag td-tag-tech" onclick="dFilterTag('tech','${escapeHtml(r.technology)}')">${escapeHtml(r.technology)}</span>` : '–'}</td>
@@ -478,7 +221,7 @@ function dRenderTable() {
 }
 
 function dFilterTag(type, val) {
-  const sel = type === 'cc' ? dSelCC : dSelTech;
+  const sel = type === 'cc' ? selCC : selTech;
   sel.clear();
   sel.add(val);
   updateMSLabel('d', type);
@@ -487,19 +230,108 @@ function dFilterTag(type, val) {
 
 function dUpdateStats() {
   document.getElementById('d-s-total').textContent   = all.length;
-  document.getElementById('d-s-showing').textContent = dVisible.length;
-  document.getElementById('d-s-cc').textContent      = new Set(dVisible.map(r=>r.displayCC).filter(c=>c&&c!=='N/A')).size;
-  document.getElementById('d-s-new').textContent     = nwCount;
+  document.getElementById('d-s-showing').textContent = visible.length;
+  document.getElementById('d-s-cc').textContent      = new Set(visible.map(r=>r.displayCC).filter(c=>c&&c!=='N/A')).size;
+  document.getElementById('d-s-new').textContent     = visible.filter(r => { const y = parseInt(r.founded); return !isNaN(y) && y >= 2020; }).length;
 }
 
-function sortBy(ctx, col, th) {
-  if (dSortCol===col) dSortDir=-dSortDir; else { dSortCol=col; dSortDir=1; }
+function sortBy(col, th) {
+  if (sortCol===col) sortDir=-sortDir; else { sortCol=col; sortDir=1; }
   document.querySelectorAll('#desktop-app th:not(.nosort)').forEach(t=>t.classList.remove('asc','desc'));
-  th.classList.add(dSortDir===1?'asc':'desc');
+  th.classList.add(sortDir===1?'asc':'desc');
   dFilter();
 }
 
-/* DESKTOP MULTI-SELECT */
+function dSwitchTab(tab) {
+  document.querySelectorAll('.d-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('d-tab-'+tab).classList.add('active');
+  document.getElementById('d-list-view').style.display = tab==='list' ? '' : 'none';
+  document.getElementById('d-stats-view').style.display = tab==='stats' ? '' : 'none';
+  if (tab==='stats') renderCharts('d');
+}
+
+/* ── RENDER: Mobile ── */
+function mRenderCards() {
+  const el = document.getElementById('m-cards');
+  if (!visible.length) {
+    el.innerHTML = `<div class="m-empty"><div class="m-empty-icon">🔍</div>No companies match your filters.</div>`;
+    return;
+  }
+  el.innerHTML = visible.map(r => {
+    const flagBadge = r.cc && r.cc !== 'N/A' ? `<span class="m-badge m-badge-cc" onclick="mFilterTag('cc','${escapeHtml(r.displayCC)}')">${flagHTML(r.cc,12)}<span>${escapeHtml(r.displayCC)}</span></span>` : `<span class="m-badge m-badge-cc m-badge-unknown">${flagHTML('',12)}<span>N/A</span></span>`;
+    const yrBadge   = r.founded ? `<span class="m-badge m-badge-yr">${escapeHtml(r.founded)}</span>` : '';
+    const techBadge = r.technology ? `<span class="m-badge m-badge-tech" onclick="mFilterTag('tech','${escapeHtml(r.technology)}')">${getTechEmoji(r.technology)} ${escapeHtml(r.technology)}</span>` : '';
+    return `<div class="m-card">
+      <div class="m-card-head">
+        <div class="m-card-name">${escapeHtml(r.name)}</div>
+        <div class="m-card-row">${flagBadge}${yrBadge}${techBadge}</div>
+      </div>
+      ${r.description ? `<div class="m-card-desc">${escapeHtml(r.description)}</div>` : ''}
+      ${r.domain ? `<div class="m-card-div"></div><a class="m-card-url" href="${escapeHtml(r.website)}" target="_blank">🔗 ${escapeHtml(r.domain)}</a>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function mUpdateStats() {
+  document.getElementById('m-s-total').textContent   = all.length;
+  document.getElementById('m-s-showing').textContent = visible.length;
+  document.getElementById('m-s-cc').textContent      = new Set(visible.map(r=>r.displayCC).filter(c=>c&&c!=='N/A')).size;
+  document.getElementById('m-s-new').textContent     = visible.filter(r => { const y = parseInt(r.founded); return !isNaN(y) && y >= 2020; }).length;
+}
+
+function updateChip(el, type, active, count) {
+  if (!el) return;
+  el.innerHTML = type === 'cc'
+    ? (active ? `Country <span class="chip-badge">${count}</span>` : `${ICON.globe} Country`)
+    : (active ? `Technology <span class="chip-badge">${count}</span>` : `${ICON.chip} Technology`);
+  el.className = 'm-chip' + (active ? ' active' : '');
+}
+
+function mUpdateChips() {
+  updateChip(document.getElementById('m-chip-cc'), 'cc', selCC.size > 0, selCC.size);
+  updateChip(document.getElementById('m-chip-tech'), 'tech', selTech.size > 0, selTech.size);
+  updateChip(document.getElementById('m-s-chip-cc'), 'cc', selCC.size > 0, selCC.size);
+  updateChip(document.getElementById('m-s-chip-tech'), 'tech', selTech.size > 0, selTech.size);
+  ['2020','2015','old'].forEach(k => {
+    const el = document.getElementById('m-chip-y'+k);
+    if (el) el.className = 'm-chip' + (yearFilter === k ? ' active' : '');
+    const el2 = document.getElementById('m-s-chip-y'+k);
+    if (el2) el2.className = 'm-chip' + (yearFilter === k ? ' active' : '');
+  });
+}
+
+function toggleYearChip(val) {
+  yearFilter = yearFilter === val ? '' : val;
+  const sel = document.getElementById('d-f-year');
+  if (sel) sel.value = yearFilter;
+  mFilter();
+}
+
+function mFilterTag(type, val) {
+  const sel = type === 'cc' ? selCC : selTech;
+  sel.clear();
+  sel.add(val);
+  mUpdateChips();
+  mFilter();
+}
+
+function mSetSort(col, btn) {
+  if (sortCol===col) sortDir=-sortDir; else { sortCol=col; sortDir=1; }
+  document.querySelectorAll('.m-sort-chip').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  mFilter();
+}
+
+function mSwitchTab(tab, btn) {
+  document.querySelectorAll('.m-nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('m-explore-panel').style.display = tab==='explore' ? '' : 'none';
+  document.getElementById('m-stats-panel').style.display   = tab==='stats'   ? '' : 'none';
+  document.getElementById('m-about-panel').style.display   = tab==='about'   ? '' : 'none';
+  if (tab==='stats') renderCharts('m');
+}
+
+/* ── MULTI-SELECT ── */
 function toggleMS(ctx, type) {
   const pfx = ctx+'-';
   const dd = document.getElementById(pfx+'md-'+type);
@@ -521,7 +353,7 @@ function toggleMS(ctx, type) {
 function renderMSList(ctx, type, q='') {
   const pfx   = ctx+'-';
   const items = type==='cc' ? ccItems : techItems;
-  const sel   = type==='cc' ? dSelCC  : dSelTech;
+  const sel   = type==='cc' ? selCC  : selTech;
   const el    = document.getElementById(pfx+'ml-'+type+'-items');
   const fq    = q.toLowerCase();
   const list  = fq ? items.filter(i=>i.v.toLowerCase().includes(fq)) : items;
@@ -546,7 +378,7 @@ function renderMSList(ctx, type, q='') {
 }
 
 function toggleMSItem(ctx, type, val, el) {
-  const sel = type==='cc' ? dSelCC : dSelTech;
+  const sel = type==='cc' ? selCC : selTech;
   if (sel.has(val)) sel.delete(val); else sel.add(val);
   el.classList.toggle('sel');
   updateMSLabel(ctx, type);
@@ -555,7 +387,7 @@ function toggleMSItem(ctx, type, val, el) {
 
 function updateMSLabel(ctx, type) {
   const pfx  = ctx+'-';
-  const sel  = type==='cc' ? dSelCC : dSelTech;
+  const sel  = type==='cc' ? selCC : selTech;
   const base = type==='cc' ? 'Country' : 'Technology';
   const lbl  = document.getElementById(pfx+'ml-'+type);
   if (sel.size===0) {
@@ -574,129 +406,16 @@ function updateMSLabel(ctx, type) {
 }
 
 function clearMS(ctx, type) {
-  const sel = type==='cc' ? dSelCC : dSelTech;
+  const sel = type==='cc' ? selCC : selTech;
   sel.clear();
   renderMSList(ctx, type, document.getElementById(ctx+'-ms-'+type+'-q').value);
   updateMSLabel(ctx, type);
   dFilter();
 }
 
-document.addEventListener('click', e => {
-  const item = e.target.closest('.ms-item');
-  if (item && item.dataset.ctx) {
-    toggleMSItem(item.dataset.ctx, item.dataset.type, item.dataset.value, item);
-    return;
-  }
-  if (!e.target.closest('.ms-wrap')) {
-    document.querySelectorAll('.ms-dd').forEach(d=>d.classList.remove('open'));
-    document.querySelectorAll('.ms-trigger').forEach(t=>t.classList.remove('open'));
-  }
-});
-document.getElementById('d-search').addEventListener('input', debounce(dFilter, 200));
-
-/* ══════════════════════════════════════
-   MOBILE LOGIC
-   ══════════════════════════════════════ */
-function mFilter() {
-  mVisible = filterData('m');
-  mRenderCards(); mUpdateStats(); mUpdateChips(); syncStateToURL();
-  if (!document.getElementById('m-stats-panel').style.display) renderCharts('m');
-}
-
-function mRenderCards() {
-  const el = document.getElementById('m-cards');
-  if (!mVisible.length) {
-    el.innerHTML = `<div class="m-empty"><div class="m-empty-icon">🔍</div>No companies match your filters.</div>`;
-    return;
-  }
-  el.innerHTML = mVisible.map(r => {
-    const flagBadge = r.cc && r.cc !== 'N/A' ? `<span class="m-badge m-badge-cc" onclick="mFilterTag('cc','${escapeHtml(r.displayCC)}')">${flagHTML(r.cc,12)}<span>${escapeHtml(r.displayCC)}</span></span>` : `<span class="m-badge m-badge-cc m-badge-unknown">${flagHTML('',12)}<span>N/A</span></span>`;
-    const yrBadge   = r.founded ? `<span class="m-badge m-badge-yr">${escapeHtml(r.founded)}</span>` : '';
-    const techBadge = r.technology ? `<span class="m-badge m-badge-tech" onclick="mFilterTag('tech','${escapeHtml(r.technology)}')">${getTechEmoji(r.technology)} ${escapeHtml(r.technology)}</span>` : '';
-    return `<div class="m-card">
-      <div class="m-card-head">
-        <div class="m-card-name">${escapeHtml(r.name)}</div>
-        <div class="m-card-row">${flagBadge}${yrBadge}${techBadge}</div>
-      </div>
-      ${r.description ? `<div class="m-card-desc">${escapeHtml(r.description)}</div>` : ''}
-      ${r.domain ? `<div class="m-card-div"></div><a class="m-card-url" href="${escapeHtml(r.website)}" target="_blank">🔗 ${escapeHtml(r.domain)}</a>` : ''}
-    </div>`;
-  }).join('');
-}
-
-function mUpdateStats() {
-  document.getElementById('m-s-total').textContent   = all.length;
-  document.getElementById('m-s-showing').textContent = mVisible.length;
-  document.getElementById('m-s-cc').textContent      = new Set(mVisible.map(r=>r.displayCC).filter(c=>c&&c!=='N/A')).size;
-  document.getElementById('m-s-new').textContent     = nwCount;
-}
-
-function mUpdateChips() {
-  const cc   = document.getElementById('m-chip-cc');
-  const tech = document.getElementById('m-chip-tech');
-  if (mSelCC.size===0)   cc.innerHTML   = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10A15.3 15.3 0 0 1 8 12 15.3 15.3 0 0 1 12 2z"/></svg> Country`;
-  else cc.innerHTML = `Country <span class="chip-badge">${mSelCC.size}</span>`;
-  cc.className = 'm-chip'+(mSelCC.size?' active':'');
-  if (mSelTech.size===0) tech.innerHTML = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m8 21 4-4 4 4M12 17v4"/></svg> Technology`;
-  else tech.innerHTML = `Technology <span class="chip-badge">${mSelTech.size}</span>`;
-  tech.className = 'm-chip'+(mSelTech.size?' active':'');
-  ['2020','2015','old'].forEach(k => {
-    document.getElementById('m-chip-y'+k).className = 'm-chip'+(mYearFilter===k?' active':'');
-  });
-  // stats panel chips
-  const sCc   = document.getElementById('m-s-chip-cc');
-  const sTech = document.getElementById('m-s-chip-tech');
-  if (sCc) {
-    if (mSelCC.size===0) sCc.innerHTML = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10A15.3 15.3 0 0 1 8 12 15.3 15.3 0 0 1 12 2z"/></svg> Country`;
-    else sCc.innerHTML = `Country <span class="chip-badge">${mSelCC.size}</span>`;
-    sCc.className = 'm-chip'+(mSelCC.size?' active':'');
-  }
-  if (sTech) {
-    if (mSelTech.size===0) sTech.innerHTML = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m8 21 4-4 4 4M12 17v4"/></svg> Technology`;
-    else sTech.innerHTML = `Technology <span class="chip-badge">${mSelTech.size}</span>`;
-    sTech.className = 'm-chip'+(mSelTech.size?' active':'');
-  }
-  ['2020','2015','old'].forEach(k => {
-    const el = document.getElementById('m-s-chip-y'+k);
-    if (el) el.className = 'm-chip'+(mYearFilter===k?' active':'');
-  });
-}
-
-function toggleYearChip(val) { mYearFilter = mYearFilter===val?'':val; mFilter(); }
-
-function mFilterTag(type, val) {
-  const sel = type === 'cc' ? mSelCC : mSelTech;
-  sel.clear();
-  sel.add(val);
-  mUpdateChips();
-  mFilter();
-}
-
-function mSetSort(col, btn) {
-  if (mSortCol===col) mSortDir=-mSortDir; else { mSortCol=col; mSortDir=1; }
-  document.querySelectorAll('.m-sort-chip').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  mFilter();
-}
-
-function mSwitchTab(tab, btn) {
-  document.querySelectorAll('.m-nav-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('m-explore-panel').style.display = tab==='explore' ? '' : 'none';
-  document.getElementById('m-stats-panel').style.display   = tab==='stats'   ? '' : 'none';
-  document.getElementById('m-about-panel').style.display   = tab==='about'   ? '' : 'none';
-  if (tab==='stats') renderCharts('m');
-}
-
-document.getElementById('m-search').addEventListener('input', debounce(mFilter, 200));
-document.getElementById('m-sheet-items').addEventListener('click', e => {
-  const item = e.target.closest('.m-sheet-item');
-  if (item) toggleSheetItem(item.dataset.value);
-});
-
-/* MOBILE SHEET */
+/* ── MOBILE SHEET ── */
 function openSheet(type) {
-  mSheetType = type;
+  sheetType = type;
   document.getElementById('m-sheet-title').textContent = type==='cc' ? 'Filter by Country' : 'Filter by Technology';
   document.getElementById('m-sheet-sec').textContent   = type==='cc' ? 'Countries' : 'Technologies';
   document.getElementById('m-sheet-q').value = '';
@@ -704,13 +423,13 @@ function openSheet(type) {
   document.getElementById('m-sheet-overlay').classList.add('open');
 }
 
-function renderSheetItems(q) {
-  const items = mSheetType==='cc' ? ccItems : techItems;
-  const sel   = mSheetType==='cc' ? mSelCC  : mSelTech;
+function renderSheetItems(q='') {
+  const items = sheetType==='cc' ? ccItems : techItems;
+  const sel   = sheetType==='cc' ? selCC  : selTech;
   const fq = q.toLowerCase();
   const list = fq ? items.filter(i=>i.v.toLowerCase().includes(fq)) : items;
   const el = document.getElementById('m-sheet-items');
-  if (mSheetType==='cc') {
+  if (sheetType==='cc') {
     el.innerHTML = list.map(({v,n}) => {
       const fc = dcToFlag(v);
       return `<div class="m-sheet-item${sel.has(v)?' sel':''}" data-value="${escapeHtml(v)}">
@@ -731,24 +450,288 @@ function renderSheetItems(q) {
 }
 
 function toggleSheetItem(val) {
-  const sel = mSheetType==='cc' ? mSelCC : mSelTech;
+  const sel = sheetType==='cc' ? selCC : selTech;
   if (sel.has(val)) sel.delete(val); else sel.add(val);
   renderSheetItems(document.getElementById('m-sheet-q').value);
   mFilter();
 }
 
 function clearMobileFilter() {
-  const sel = mSheetType==='cc' ? mSelCC : mSelTech;
+  const sel = sheetType==='cc' ? selCC : selTech;
   sel.clear();
   renderSheetItems(document.getElementById('m-sheet-q').value);
   mFilter();
 }
 
-function closeSheet()               { document.getElementById('m-sheet-overlay').classList.remove('open'); mSheetType=null; }
+function closeSheet()               { document.getElementById('m-sheet-overlay').classList.remove('open'); sheetType=null; }
 function closeSheetOutside(e)       { if (e.target===document.getElementById('m-sheet-overlay')) closeSheet(); }
 
+/* ── STATE & EXPORT ── */
+function syncStateToURL() {
+  const params = new URLSearchParams();
+  const activeTab = document.getElementById('d-tab-stats').classList.contains('active') ? 'stats' : 'list';
+  if (activeTab === 'stats') params.set('tab', 'stats');
+  if (selCC.size) params.set('cc', [...selCC].join(','));
+  if (selTech.size) params.set('tech', [...selTech].join(','));
+  if (yearFilter) params.set('year', yearFilter);
+  const q = document.getElementById('d-search').value || document.getElementById('m-search').value;
+  if (q) params.set('q', q);
+  if (sortCol !== 'name' || sortDir !== 1) { params.set('sort', sortCol); params.set('dir', sortDir); }
+  const newURL = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+  window.history.replaceState({}, '', newURL);
+}
+
+function loadStateFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const cc = params.get('cc'), tech = params.get('tech'), year = params.get('year'), q = params.get('q'), sort = params.get('sort'), dir = params.get('dir'), tab = params.get('tab');
+  if (cc) cc.split(',').forEach(v => selCC.add(v));
+  if (tech) tech.split(',').forEach(v => selTech.add(v));
+  if (year) { yearFilter = year; document.getElementById('d-f-year').value = year; }
+  if (q) { document.getElementById('d-search').value = q; document.getElementById('m-search').value = q; }
+  if (sort) { sortCol = sort; if (dir) sortDir = parseInt(dir); }
+  if (tab === 'stats') {
+    if (window.innerWidth > 767) dSwitchTab('stats');
+    else mSwitchTab('stats', document.getElementById('m-nav-stats'));
+  }
+  updateMSLabel('d', 'cc'); updateMSLabel('d', 'tech');
+}
+
+function exportCSV() {
+  if (!visible.length) return alert('No data to export');
+  const headers = ['Name', 'Website', 'Technology', 'Country', 'Founded', 'Description'];
+  const csvContent = [headers.join(','), ...visible.map(r => [
+    `"${(r.name||'').replace(/"/g,'""')}"`,
+    `"${(r.website||'').replace(/"/g,'""')}"`,
+    `"${(r.technology||'').replace(/"/g,'""')}"`,
+    `"${(r.country||'').replace(/"/g,'""')}"`,
+    `"${(r.founded||'').replace(/"/g,'""')}"`,
+    `"${(r.description||'').replace(/"/g,'""')}"`
+  ].join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.setAttribute('download', `chip-scout-export-${new Date().toISOString().slice(0,10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+/* ── CHARTS ── */
+const flagCache = {};
+const flagPlugin = {
+  id: 'flagPlugin',
+  afterDraw: (chart) => {
+    const { ctx, scales: { x } } = chart;
+    if (!x || !x.ticks) return;
+    x.ticks.forEach((tick, i) => {
+      const countryName = chart.data.labels[i];
+      if (!countryName) return;
+      const cc = dcToFlag(countryName);
+      if (!cc) return;
+      const url = `https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/flags/4x3/${cc}.svg`;
+      let img = flagCache[url];
+      if (!img) {
+        img = new Image();
+        img.src = url;
+        img.onload = () => chart.draw();
+        flagCache[url] = img;
+      }
+      if (img.complete) {
+        const xPos = x.getPixelForTick(i);
+        ctx.drawImage(img, xPos - 10, x.bottom + 2, 20, 14);
+      }
+    });
+  }
+};
+
+function updateChart(id, config) {
+  if (charts[id]) {
+    const c = charts[id];
+    c.data = config.data;
+    c.options = config.options;
+    c.update('none');
+  } else {
+    const el = document.getElementById(id);
+    if (!el) return;
+    charts[id] = new Chart(el, config);
+  }
+}
+
+function renderCharts(ctx) {
+  const data = visible;
+  const pfx = ctx === 'd' ? '' : '-m';
+
+  const techData = {};
+  const ageData = {};
+  const ccData = {};
+
+  data.forEach(r => {
+    if (r.technology) techData[r.technology] = (techData[r.technology]||0) + 1;
+    if (r.founded && /^\d{4}$/.test(r.founded)) ageData[r.founded] = (ageData[r.founded]||0) + 1;
+    if (r.displayCC && r.displayCC !== 'N/A') ccData[r.displayCC] = (ccData[r.displayCC]||0) + 1;
+  });
+
+  const topTech = Object.entries(techData).sort((a,b)=>b[1]-a[1]).slice(0, 10);
+  const sortedYears = Object.keys(ageData).sort();
+  const topCC = Object.entries(ccData).sort((a,b)=>b[1]-a[1]).slice(0, 10);
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const labelColor = isDark ? '#b0b0c0' : '#5a5a66';
+  const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
+
+  updateChart('chart-tech'+pfx, {
+    type: 'pie',
+    data: {
+      labels: topTech.map(e => getTechEmoji(e[0]) + ' ' + e[0]),
+      datasets: [{ data: topTech.map(e=>e[1]), backgroundColor: CHART_COLORS, borderWidth: isDark ? 2 : 1, borderColor: isDark ? '#18181c' : '#fff' }]
+    },
+    options: {
+      plugins: {
+        legend: {
+          position: window.innerWidth > 1200 ? 'right' : 'bottom',
+          labels: { boxWidth: 12, font: { size: 11, weight: '500' }, color: labelColor, padding: 15 }
+        }
+      }
+    }
+  });
+
+  updateChart('chart-age'+pfx, {
+    type: 'bar',
+    data: {
+      labels: sortedYears,
+      datasets: [{
+        label: 'Startups',
+        data: sortedYears.map(y=>ageData[y]),
+        backgroundColor: '#3b82f6',
+        borderRadius: 6
+      }]
+    },
+    options: {
+      scales: {
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor } },
+        x: { grid: { display: false }, ticks: { color: labelColor } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  updateChart('chart-cc'+pfx, {
+    type: 'bar',
+    data: {
+      labels: topCC.map(e => e[0]),
+      datasets: topCC.map((e, i) => ({
+        label: e[0],
+        data: topCC.map((_, idx) => idx === i ? e[1] : null),
+        backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+        borderRadius: 6,
+        barPercentage: 0.8,
+        categoryPercentage: 0.9
+      }))
+    },
+    options: {
+      indexAxis: 'x',
+      layout: { padding: { bottom: 20 } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor }, stacked: true },
+        x: { grid: { display: false }, ticks: { color: labelColor, font: { size: 11, weight: '600' } }, stacked: true }
+      },
+      plugins: {
+        legend: {
+          display: false,
+          position: 'bottom',
+          labels: { boxWidth: 12, font: { size: 11 }, color: labelColor, padding: 10 }
+        }
+      }
+    },
+    plugins: [flagPlugin]
+  });
+
+  /* ── Startup Age Distribution ── */
+  const ageRanges = { '0–2 yr': 0, '3–5 yr': 0, '6–10 yr': 0, '10+ yr': 0 };
+  const currentYear = new Date().getFullYear();
+  data.forEach(r => {
+    if (!r.founded || !/^\d{4}$/.test(r.founded)) return;
+    const age = currentYear - parseInt(r.founded);
+    if (age <= 2) ageRanges['0–2 yr']++;
+    else if (age <= 5) ageRanges['3–5 yr']++;
+    else if (age <= 10) ageRanges['6–10 yr']++;
+    else ageRanges['10+ yr']++;
+  });
+
+  updateChart('chart-age-dist'+pfx, {
+    type: 'bar',
+    data: {
+      labels: Object.keys(ageRanges),
+      datasets: [{ data: Object.values(ageRanges), backgroundColor: ['#4ade80','#3b82f6','#f59e0b','#ef4444'], borderRadius: 6 }]
+    },
+    options: {
+      scales: {
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor } },
+        x: { grid: { display: false }, ticks: { color: labelColor } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  /* ── New vs Established ── */
+  let newCount = 0, oldCount = 0;
+  data.forEach(r => {
+    if (!r.founded || !/^\d{4}$/.test(r.founded)) return;
+    if (parseInt(r.founded) >= 2020) newCount++; else oldCount++;
+  });
+
+  updateChart('chart-new-old'+pfx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Founded 2020+', 'Founded before 2020'],
+      datasets: [{ data: [newCount, oldCount], backgroundColor: ['#3b82f6', '#94a3b8'], borderWidth: isDark ? 2 : 1, borderColor: isDark ? '#18181c' : '#fff' }]
+    },
+    options: {
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, weight: '500' }, color: labelColor, padding: 15 } }
+      }
+    }
+  });
+
+  /* ── Top Tech per Country ── */
+  const topCNames = topCC.slice(0, 8).map(e => e[0]);
+  const techPerCC = {};
+  topCNames.forEach(cc => { techPerCC[cc] = {}; });
+  data.forEach(r => {
+    if (!r.displayCC || r.displayCC === 'N/A' || !r.technology) return;
+    if (!topCNames.includes(r.displayCC)) return;
+    techPerCC[r.displayCC][r.technology] = (techPerCC[r.displayCC][r.technology] || 0) + 1;
+  });
+  const topTechGlobal = topTech.map(e => e[0]).slice(0, 6);
+
+  updateChart('chart-tech-cc'+pfx, {
+    type: 'bar',
+    data: {
+      labels: topCNames,
+      datasets: topTechGlobal.map((tech, i) => ({
+        label: tech,
+        data: topCNames.map(cc => (techPerCC[cc] && techPerCC[cc][tech]) || 0),
+        backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+        borderRadius: 4
+      }))
+    },
+    options: {
+      indexAxis: 'x',
+      layout: { padding: { bottom: 20 } },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { color: labelColor, font: { size: 11, weight: '600' } } },
+        y: { beginAtZero: true, stacked: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor } }
+      },
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 }, color: labelColor, padding: 10 } }
+      }
+    },
+    plugins: [flagPlugin]
+  });
+}
+
 /* ══════════════════════════════════════
-    THEME  (shared)
+    THEME
    ══════════════════════════════════════ */
 let themeMode = localStorage.getItem('theme-mode') || 'auto';
 
@@ -765,13 +748,11 @@ function applyTheme() {
 
   document.documentElement.setAttribute('data-theme', resolved);
 
-  // Update Mobile
   const mIcon = document.getElementById('theme-icon');
   const mLabel = document.getElementById('theme-label');
   if (mIcon) mIcon.innerHTML = icons[themeMode];
   if (mLabel) mLabel.textContent = labels[themeMode];
 
-  // Update Desktop
   const dIcon = document.getElementById('d-theme-icon');
   const dLabel = document.getElementById('d-theme-label');
   if (dIcon) dIcon.innerHTML = icons[themeMode];
@@ -834,3 +815,25 @@ function updateMeta(commits) {
 }
 
 init();
+
+/* ══════════════════════════════════════
+   EVENT LISTENERS
+   ══════════════════════════════════════ */
+document.addEventListener('click', e => {
+  const item = e.target.closest('.ms-item');
+  if (item && item.dataset.ctx) {
+    toggleMSItem(item.dataset.ctx, item.dataset.type, item.dataset.value, item);
+    return;
+  }
+  if (!e.target.closest('.ms-wrap')) {
+    document.querySelectorAll('.ms-dd').forEach(d=>d.classList.remove('open'));
+    document.querySelectorAll('.ms-trigger').forEach(t=>t.classList.remove('open'));
+  }
+});
+
+document.getElementById('d-search').addEventListener('input', debounce(dFilter, 200));
+document.getElementById('m-search').addEventListener('input', debounce(mFilter, 200));
+document.getElementById('m-sheet-items').addEventListener('click', e => {
+  const item = e.target.closest('.m-sheet-item');
+  if (item) toggleSheetItem(item.dataset.value);
+});
