@@ -379,6 +379,7 @@ function filterData(ctx) {
 function dFilter() {
   dVisible = filterData('d');
   dRenderTable(); dUpdateStats(); syncStateToURL();
+  if (!document.getElementById('d-stats-view').style.display) renderCharts('d');
 }
 
 function applyFilters(ctx) { if(ctx==='d') dFilter(); else mFilter(); }
@@ -389,11 +390,19 @@ function dRenderTable() {
   tb.innerHTML = dVisible.map(r => `<tr>
     <td title="${escapeHtml(r.name)}" style="font-weight:600">${escapeHtml(r.name)}</td>
     <td>${r.domain ? `<a class="td-link" href="${escapeHtml(r.website)}" target="_blank">${escapeHtml(r.domain)}</a>` : '–'}</td>
-    <td class="td-muted">${r.technology ? escapeHtml(r.technology) : '–'}</td>
-    <td><div class="cc-cell">${flagHTML(r.cc,15)}<span>${escapeHtml(r.displayCC)}</span></div></td>
+    <td>${r.technology ? `<span class="td-tag td-tag-tech" onclick="dFilterTag('tech','${escapeHtml(r.technology)}')">${escapeHtml(r.technology)}</span>` : '–'}</td>
+    <td>${r.cc ? `<div class="td-tag td-tag-cc" onclick="dFilterTag('cc','${escapeHtml(r.displayCC)}')">${flagHTML(r.cc,15)}<span>${escapeHtml(r.displayCC)}</span></div>` : '–'}</td>
     <td class="td-muted">${escapeHtml(r.founded)||'–'}</td>
     <td title="${escapeHtml(r.description)}" class="td-muted">${escapeHtml(r.description)||'–'}</td>
   </tr>`).join('');
+}
+
+function dFilterTag(type, val) {
+  const sel = type === 'cc' ? dSelCC : dSelTech;
+  sel.clear();
+  sel.add(val);
+  updateMSLabel('d', type);
+  dFilter();
 }
 
 function dUpdateStats() {
@@ -511,6 +520,7 @@ document.getElementById('d-search').addEventListener('input', debounce(dFilter, 
 function mFilter() {
   mVisible = filterData('m');
   mRenderCards(); mUpdateStats(); mUpdateChips(); syncStateToURL();
+  if (!document.getElementById('m-stats-panel').style.display) renderCharts('m');
 }
 
 function mRenderCards() {
@@ -520,9 +530,9 @@ function mRenderCards() {
     return;
   }
   el.innerHTML = mVisible.map(r => {
-    const flagBadge = r.cc ? `<span class="m-badge m-badge-cc">${flagHTML(r.cc,12)}<span>${escapeHtml(r.displayCC)}</span></span>` : '';
+    const flagBadge = r.cc ? `<span class="m-badge m-badge-cc" onclick="mFilterTag('cc','${escapeHtml(r.displayCC)}')">${flagHTML(r.cc,12)}<span>${escapeHtml(r.displayCC)}</span></span>` : '';
     const yrBadge   = r.founded ? `<span class="m-badge m-badge-yr">${escapeHtml(r.founded)}</span>` : '';
-    const techBadge = r.technology ? `<span class="m-badge m-badge-tech">${getTechEmoji(r.technology)} ${escapeHtml(r.technology)}</span>` : '';
+    const techBadge = r.technology ? `<span class="m-badge m-badge-tech" onclick="mFilterTag('tech','${escapeHtml(r.technology)}')">${getTechEmoji(r.technology)} ${escapeHtml(r.technology)}</span>` : '';
     return `<div class="m-card">
       <div class="m-card-head">
         <div class="m-card-name">${escapeHtml(r.name)}</div>
@@ -553,9 +563,34 @@ function mUpdateChips() {
   ['2020','2015','old'].forEach(k => {
     document.getElementById('m-chip-y'+k).className = 'm-chip'+(mYearFilter===k?' active':'');
   });
+  // stats panel chips
+  const sCc   = document.getElementById('m-s-chip-cc');
+  const sTech = document.getElementById('m-s-chip-tech');
+  if (sCc) {
+    if (mSelCC.size===0) sCc.innerHTML = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10A15.3 15.3 0 0 1 8 12 15.3 15.3 0 0 1 12 2z"/></svg> Country`;
+    else sCc.innerHTML = `Country <span class="chip-badge">${mSelCC.size}</span>`;
+    sCc.className = 'm-chip'+(mSelCC.size?' active':'');
+  }
+  if (sTech) {
+    if (mSelTech.size===0) sTech.innerHTML = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m8 21 4-4 4 4M12 17v4"/></svg> Technology`;
+    else sTech.innerHTML = `Technology <span class="chip-badge">${mSelTech.size}</span>`;
+    sTech.className = 'm-chip'+(mSelTech.size?' active':'');
+  }
+  ['2020','2015','old'].forEach(k => {
+    const el = document.getElementById('m-s-chip-y'+k);
+    if (el) el.className = 'm-chip'+(mYearFilter===k?' active':'');
+  });
 }
 
 function toggleYearChip(val) { mYearFilter = mYearFilter===val?'':val; mFilter(); }
+
+function mFilterTag(type, val) {
+  const sel = type === 'cc' ? mSelCC : mSelTech;
+  sel.clear();
+  sel.add(val);
+  mUpdateChips();
+  mFilter();
+}
 
 function mSetSort(col, btn) {
   if (mSortCol===col) mSortDir=-mSortDir; else { mSortCol=col; mSortDir=1; }

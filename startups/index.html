@@ -75,8 +75,7 @@
     <button class="d-tab-btn" id="d-tab-stats" onclick="dSwitchTab('stats')">Statistics</button>
   </div>
 
-  <div id="d-list-view">
-    <div class="d-controls">
+  <div class="d-shared-controls">
     <div class="d-filters">
       <!-- Country MS -->
       <div class="ms-wrap" id="d-mw-cc">
@@ -112,6 +111,16 @@
         <option value="old">Before 2015</option>
       </select>
     </div>
+    <div class="d-stats">
+      <div class="d-stat"><b id="d-s-total">–</b>total</div>
+      <div class="d-stat"><b id="d-s-showing">–</b>showing</div>
+      <div class="d-stat"><b id="d-s-cc">–</b>countries</div>
+      <div class="d-stat"><b id="d-s-new">–</b>founded 2020+</div>
+    </div>
+  </div>
+
+  <div id="d-list-view">
+    <div class="d-controls">
     <!-- Search RIGHT -->
     <div class="d-search">
       <div class="d-search-wrap">
@@ -121,13 +130,6 @@
         <input type="text" id="d-search" placeholder="Search companies…" autocomplete="off">
       </div>
     </div>
-  </div>
-
-  <div class="d-stats">
-    <div class="d-stat"><b id="d-s-total">–</b>total</div>
-    <div class="d-stat"><b id="d-s-showing">–</b>showing</div>
-    <div class="d-stat"><b id="d-s-cc">–</b>countries</div>
-    <div class="d-stat"><b id="d-s-new">–</b>founded 2020+</div>
   </div>
 
   <div class="d-table-wrap">
@@ -266,6 +268,19 @@
     </div>
     <!-- Stats panel -->
     <div id="m-stats-panel" style="display:none; padding: 12px;">
+      <div class="m-chips" style="margin-bottom:12px">
+        <div class="m-chip" id="m-s-chip-cc" onclick="openSheet('cc')">
+          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10A15.3 15.3 0 0 1 8 12 15.3 15.3 0 0 1 12 2z"/></svg>
+          Country
+        </div>
+        <div class="m-chip" id="m-s-chip-tech" onclick="openSheet('tech')">
+          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m8 21 4-4 4 4M12 17v4"/></svg>
+          Technology
+        </div>
+        <div class="m-chip" id="m-s-chip-y2020" onclick="toggleYearChip('2020')">2020+</div>
+        <div class="m-chip" id="m-s-chip-y2015" onclick="toggleYearChip('2015')">2015–2019</div>
+        <div class="m-chip" id="m-s-chip-yold" onclick="toggleYearChip('old')">Pre-2015</div>
+      </div>
       <div class="stats-grid" style="grid-template-columns: 1fr;">
         <div class="chart-card">
           <h3>Technology Distribution</h3>
