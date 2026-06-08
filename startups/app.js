@@ -270,7 +270,7 @@ function renderCharts(ctx) {
       const { ctx, scales: { x } } = chart;
       if (!x || !x.ticks) return;
       x.ticks.forEach((tick, i) => {
-        const countryName = topCC[i] ? topCC[i][0] : null;
+        const countryName = chart.data.labels[i];
         if (!countryName) return;
         const cc = dcToFlag(countryName);
         if (!cc) return;
@@ -388,15 +388,17 @@ function renderCharts(ctx) {
       }))
     },
     options: {
-      indexAxis: 'y',
+      indexAxis: 'x',
+      layout: { padding: { bottom: 20 } },
       scales: {
-        x: { beginAtZero: true, stacked: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor } },
-        y: { stacked: true, grid: { display: false }, ticks: { color: labelColor, font: { size: 11, weight: '600' } } }
+        x: { stacked: true, grid: { display: false }, ticks: { color: labelColor, font: { size: 11, weight: '600' } } },
+        y: { beginAtZero: true, stacked: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor } }
       },
       plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 }, color: labelColor, padding: 10 } }
+        legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 }, color: labelColor, padding: 10 } }
       }
-    }
+    },
+    plugins: [flagPlugin]
   });
 }
 
