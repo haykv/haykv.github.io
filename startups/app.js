@@ -219,7 +219,7 @@ function renderCharts(ctx) {
     '#ff9f40', '#4ade80', '#f472b6', '#2dd4bf', '#fb923c'
   ];
 
-  ['tech', 'age', 'cc'].forEach(type => {
+  ['tech', 'age', 'cc', 'age-dist', 'new-old', 'tech-cc'].forEach(type => {
     if (charts[type+pfx]) charts[type+pfx].destroy();
   });
 
@@ -320,6 +320,84 @@ function renderCharts(ctx) {
     },
     plugins: [flagPlugin]
   });
+
+  /* ── Startup Age Distribution ── */
+  const ageRanges = { '0–2 yr': 0, '3–5 yr': 0, '6–10 yr': 0, '10+ yr': 0 };
+  const currentYear = new Date().getFullYear();
+  data.forEach(r => {
+    if (!r.founded || !/^\d{4}$/.test(r.founded)) return;
+    const age = currentYear - parseInt(r.founded);
+    if (age <= 2) ageRanges['0–2 yr']++;
+    else if (age <= 5) ageRanges['3–5 yr']++;
+    else if (age <= 10) ageRanges['6–10 yr']++;
+    else ageRanges['10+ yr']++;
+  });
+  charts['age-dist'+pfx] = new Chart(document.getElementById('chart-age-dist'+pfx), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(ageRanges),
+      datasets: [{ data: Object.values(ageRanges), backgroundColor: ['#4ade80','#3b82f6','#f59e0b','#ef4444'], borderRadius: 6 }]
+    },
+    options: {
+      scales: {
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor } },
+        x: { grid: { display: false }, ticks: { color: labelColor } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  /* ── New vs Established ── */
+  let newCount = 0, oldCount = 0;
+  data.forEach(r => {
+    if (!r.founded || !/^\d{4}$/.test(r.founded)) return;
+    if (parseInt(r.founded) >= 2020) newCount++; else oldCount++;
+  });
+  charts['new-old'+pfx] = new Chart(document.getElementById('chart-new-old'+pfx), {
+    type: 'doughnut',
+    data: {
+      labels: ['Founded 2020+', 'Founded before 2020'],
+      datasets: [{ data: [newCount, oldCount], backgroundColor: ['#3b82f6', '#94a3b8'], borderWidth: isDark ? 2 : 1, borderColor: isDark ? '#18181c' : '#fff' }]
+    },
+    options: {
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, weight: '500' }, color: labelColor, padding: 15 } }
+      }
+    }
+  });
+
+  /* ── Top Tech per Country ── */
+  const topCNames = topCC.slice(0, 8).map(e => e[0]);
+  const techPerCC = {};
+  topCNames.forEach(cc => { techPerCC[cc] = {}; });
+  data.forEach(r => {
+    if (!r.displayCC || r.displayCC === 'N/A' || !r.technology) return;
+    if (!topCNames.includes(r.displayCC)) return;
+    techPerCC[r.displayCC][r.technology] = (techPerCC[r.displayCC][r.technology] || 0) + 1;
+  });
+  const topTechGlobal = topTech.map(e => e[0]).slice(0, 6);
+  charts['tech-cc'+pfx] = new Chart(document.getElementById('chart-tech-cc'+pfx), {
+    type: 'bar',
+    data: {
+      labels: topCNames,
+      datasets: topTechGlobal.map((tech, i) => ({
+        label: tech,
+        data: topCNames.map(cc => (techPerCC[cc] && techPerCC[cc][tech]) || 0),
+        backgroundColor: colors[i % colors.length],
+        borderRadius: 4
+      }))
+    },
+    options: {
+      indexAxis: 'y',
+      scales: {
+        x: { beginAtZero: true, stacked: true, grid: { color: gridColor }, ticks: { stepSize: 1, color: labelColor } },
+        y: { stacked: true, grid: { display: false }, ticks: { color: labelColor, font: { size: 11, weight: '600' } } }
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 }, color: labelColor, padding: 10 } }
+      }
+    }
+  });
 }
 
 function dSwitchTab(tab) {
@@ -391,7 +469,7 @@ function dRenderTable() {
     <td title="${escapeHtml(r.name)}" style="font-weight:600">${escapeHtml(r.name)}</td>
     <td>${r.domain ? `<a class="td-link" href="${escapeHtml(r.website)}" target="_blank">${escapeHtml(r.domain)}</a>` : '–'}</td>
     <td>${r.technology ? `<span class="td-tag td-tag-tech" onclick="dFilterTag('tech','${escapeHtml(r.technology)}')">${escapeHtml(r.technology)}</span>` : '–'}</td>
-    <td>${r.cc ? `<div class="td-tag td-tag-cc" onclick="dFilterTag('cc','${escapeHtml(r.displayCC)}')">${flagHTML(r.cc,15)}<span>${escapeHtml(r.displayCC)}</span></div>` : '–'}</td>
+    <td>${r.cc && r.cc !== 'N/A' ? `<div class="td-tag td-tag-cc" onclick="dFilterTag('cc','${escapeHtml(r.displayCC)}')">${flagHTML(r.cc,15)}<span>${escapeHtml(r.displayCC)}</span></div>` : `<div class="td-tag td-tag-cc td-tag-unknown">${flagHTML('',15)}<span>N/A</span></div>`}</td>
     <td class="td-muted">${escapeHtml(r.founded)||'–'}</td>
     <td title="${escapeHtml(r.description)}" class="td-muted">${escapeHtml(r.description)||'–'}</td>
   </tr>`).join('');
@@ -530,7 +608,7 @@ function mRenderCards() {
     return;
   }
   el.innerHTML = mVisible.map(r => {
-    const flagBadge = r.cc ? `<span class="m-badge m-badge-cc" onclick="mFilterTag('cc','${escapeHtml(r.displayCC)}')">${flagHTML(r.cc,12)}<span>${escapeHtml(r.displayCC)}</span></span>` : '';
+    const flagBadge = r.cc && r.cc !== 'N/A' ? `<span class="m-badge m-badge-cc" onclick="mFilterTag('cc','${escapeHtml(r.displayCC)}')">${flagHTML(r.cc,12)}<span>${escapeHtml(r.displayCC)}</span></span>` : `<span class="m-badge m-badge-cc m-badge-unknown">${flagHTML('',12)}<span>N/A</span></span>`;
     const yrBadge   = r.founded ? `<span class="m-badge m-badge-yr">${escapeHtml(r.founded)}</span>` : '';
     const techBadge = r.technology ? `<span class="m-badge m-badge-tech" onclick="mFilterTag('tech','${escapeHtml(r.technology)}')">${getTechEmoji(r.technology)} ${escapeHtml(r.technology)}</span>` : '';
     return `<div class="m-card">
