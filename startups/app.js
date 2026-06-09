@@ -1,8 +1,9 @@
 /* ══════════════════════════════════════
    SHARED DATA & CONSTANTS
    ══════════════════════════════════════ */
-const RAW     = 'https://raw.githubusercontent.com/aolofsson/awesome-semiconductor-startups/main/startups.csv';
-const GH_API  = 'https://api.github.com/repos/aolofsson/awesome-semiconductor-startups/commits?path=startups.csv&per_page=1';
+// const RAW     = 'https://raw.githubusercontent.com/aolofsson/awesome-semiconductor-startups/main/startups.csv';
+const RAW = 'https://raw.githubusercontent.com/haykv/awesome-semiconductor-startups/refs/heads/add-missing-startups-and-filter-inactive/startups.csv';
+const GH_API  = (() => { const u = new URL(RAW); const p = u.pathname.split('/'); const filePath = p.slice(-1)[0]; const ref = p.slice(3, -1).join('/'); return `https://api.github.com/repos/${p[1]}/${p[2]}/commits?sha=${encodeURIComponent(ref)}&path=${encodeURIComponent(filePath)}&per_page=1`; })();
 const CACHE_KEY = 'chip-scout-data-v2';
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 
