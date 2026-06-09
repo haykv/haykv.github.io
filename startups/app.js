@@ -4,8 +4,7 @@
 // const RAW     = 'https://raw.githubusercontent.com/aolofsson/awesome-semiconductor-startups/main/startups.csv';
 const RAW = 'https://raw.githubusercontent.com/haykv/awesome-semiconductor-startups/refs/heads/add-missing-startups-and-filter-inactive/startups.csv';
 const GH_API  = (() => { const u = new URL(RAW); const p = u.pathname.split('/'); const filePath = p.slice(-1)[0]; const ref = p.slice(3, -1).join('/'); return `https://api.github.com/repos/${p[1]}/${p[2]}/commits?sha=${encodeURIComponent(ref)}&path=${encodeURIComponent(filePath)}&per_page=1`; })();
-const CACHE_KEY = 'chip-scout-data-v2';
-const CACHE_TTL = 24 * 60 * 60 * 1000;
+const CACHE_KEY = 'chip-scout-data-v3';
 
 const CC_MAP = {
   'United States':'us','USA':'us','US':'us',
@@ -774,29 +773,36 @@ applyTheme();
    ══════════════════════════════════════ */
 async function init() {
   const cached = localStorage.getItem(CACHE_KEY);
+  let cachedData = null;
   if (cached) {
-    try {
-      const { data, commits, ts } = JSON.parse(cached);
-      if (Date.now() - ts < CACHE_TTL) {
-        all = data; buildFreq(); loadStateFromURL(); dFilter(); mFilter(); updateMeta(commits);
-        return;
-      }
-    } catch(e) { localStorage.removeItem(CACHE_KEY); }
+    try { cachedData = JSON.parse(cached); } catch(e) { localStorage.removeItem(CACHE_KEY); }
+  }
+
+  let commits = null;
+  try {
+    commits = await fetch(GH_API, {headers:{'Accept':'application/vnd.github.v3+json'}})
+      .then(r => r.ok ? r.json() : null).catch(() => null);
+  } catch(e) {}
+
+  const latestSha = commits?.[0]?.sha;
+  const cachedSha = cachedData?.commits?.[0]?.sha;
+
+  if (cachedData?.data && latestSha && latestSha === cachedSha) {
+    all = cachedData.data;
+    buildFreq(); loadStateFromURL(); dFilter(); mFilter(); updateMeta(commits || cachedData.commits);
+    return;
   }
 
   try {
-    const [csv, commits] = await Promise.all([
-      fetch(RAW).then(r => r.text()),
-      fetch(GH_API, {headers:{'Accept':'application/vnd.github.v3+json'}}).then(r=>r.ok?r.json():null).catch(()=>null)
-    ]);
+    const csv = await fetch(RAW).then(r => r.text());
     all = parseCSV(csv);
     localStorage.setItem(CACHE_KEY, JSON.stringify({ data: all, commits, ts: Date.now() }));
     buildFreq(); loadStateFromURL(); dFilter(); mFilter(); updateMeta(commits);
   } catch (err) {
     console.error(err);
-    if (cached) {
-      const { data, commits } = JSON.parse(cached);
-      all = data; buildFreq(); loadStateFromURL(); dFilter(); mFilter(); updateMeta(commits);
+    if (cachedData?.data) {
+      all = cachedData.data;
+      buildFreq(); loadStateFromURL(); dFilter(); mFilter(); updateMeta(cachedData.commits);
     } else {
       const msg = `<tr><td colspan="6" class="d-empty">Could not load data (${err.message})</td></tr>`;
       document.getElementById('d-tbody').innerHTML = msg;
